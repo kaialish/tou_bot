@@ -1,0 +1,4 @@
+aiogram
+httpx
+beautifulsoup4
+pillow

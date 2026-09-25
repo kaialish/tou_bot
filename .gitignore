@@ -1,0 +1,12 @@
+# Секретные файлы
+config.py
+.env
+
+# Временные файлы и кэш
+debug.html
+users.db
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vs/
