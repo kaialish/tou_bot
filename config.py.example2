@@ -1,7 +1,8 @@
 # config.py.example — Шаблон для создания config.py
-BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN_HERE"
+BOT_TOKEN = ""
 
-LOGIN_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus"
+LOGIN_URL    = "https://tou.edu.kz/student_cabinet/index.php?lang=rus"
+SCHEDULE_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus&mod=rasp"
 DASHBOARD_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus&mod=dashboard"
 
 def get_headers(mode: str = "random") -> dict:
