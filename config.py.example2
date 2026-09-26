@@ -1,4 +1,5 @@
-# config.py.example — Шаблон для создания config.py
+# config.py.example — Шаблон для создания config.py (убираешь слово example2 и вставляешь свой токен тестового бота
+
 BOT_TOKEN = ""
 
 LOGIN_URL    = "https://tou.edu.kz/student_cabinet/index.php?lang=rus"
