@@ -2,12 +2,12 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, BufferedInputFile
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, BufferedInputFile, InputMediaPhoto
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 from config import BOT_TOKEN
-from tou_client import get_dashboard_html
+from tou_client import get_schedule_html
 from parser import parse_schedule_items
 from image_generator import generate_schedule_image
 
@@ -49,7 +49,7 @@ async def process_password(message: Message, state: FSMContext):
     await state.update_data(password=password)
     await message.answer("🔄 Подключаемся к порталу ToU...")
     
-    success, html_or_err = await get_dashboard_html(login, password)
+    success, html_or_err = await get_schedule_html(login, password)
     
     if success:
         await state.set_state(AuthForm.authorized)
@@ -80,23 +80,36 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
 
     await callback.answer("🔄 Обновляем расписание с сайта...")
     
-    success, html_or_err = await get_dashboard_html(login, password)
+    success, html_or_err = await get_schedule_html(login, password)
     
     if success:
         items = parse_schedule_items(html_or_err, day=day)
         day_titles = {"today": "Сегодня", "tomorrow": "Завтра", "week": "Всю неделю"}
-        
-        png_bytes = generate_schedule_image(items, title=f"Расписание на {day_titles.get(day, '')}")
+        label = day_titles.get(day, '')
+
+        png_bytes = generate_schedule_image(items, title=f"Расписание на {label}")
         photo = BufferedInputFile(png_bytes, filename="schedule.png")
-        
-        await callback.message.answer_photo(
-            photo=photo,
-            caption=f"Обновлено! Расписание на **{day_titles.get(day, '')}**:",
-            parse_mode="Markdown",
-            reply_markup=get_schedule_keyboard()
-        )
+
+        try:
+            await callback.message.edit_media(
+                media=InputMediaPhoto(
+                    media=photo,
+                    caption=f"Обновлено: **{label}**",
+                    parse_mode="Markdown",
+                ),
+                reply_markup=get_schedule_keyboard()
+            )
+        except Exception:
+            # Если сообщение нельзя отредактировать — отправляем новое
+            await callback.message.answer_photo(
+                photo=photo,
+                caption=f"Обновлено: **{label}**",
+                parse_mode="Markdown",
+                reply_markup=get_schedule_keyboard()
+            )
     else:
         await callback.message.answer("❌ Не удалось обновить данные с сайта ToU.")
+
 
 async def main():
     await dp.start_polling(bot)
