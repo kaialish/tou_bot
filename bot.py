@@ -35,12 +35,29 @@ class AdminState(StatesGroup):
     waiting_for_broadcast_msg = State()
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Клавиатуры
+# ─────────────────────────────────────────────────────────────────────────────
+
+def get_main_menu_keyboard() -> InlineKeyboardMarkup:
+    """Главное меню личного кабинета из 3 пунктов."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📅 Расписание", callback_data="menu_schedule")],
+        [InlineKeyboardButton(text="📌 Важная информация", callback_data="menu_important_dates")],
+        [InlineKeyboardButton(text="📊 Успеваемость", callback_data="menu_grades")]
+    ])
+
+
 def get_schedule_keyboard() -> InlineKeyboardMarkup:
+    """Подменю выбора дня расписания + кнопка возврата в Главное меню."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🔄 Сегодня", callback_data="sched_today"),
             InlineKeyboardButton(text="📅 Завтра", callback_data="sched_tomorrow"),
             InlineKeyboardButton(text="🗓️ Неделя", callback_data="sched_week")
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
         ]
     ])
 
@@ -119,7 +136,7 @@ async def process_broadcast_send(message: Message, state: FSMContext):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Основная логика бота
+# Основная логика бота и Меню
 # ─────────────────────────────────────────────────────────────────────────────
 
 @dp.message(CommandStart())
@@ -135,7 +152,7 @@ async def cmd_start(message: Message, state: FSMContext):
         ])
         await message.answer("С возвращением! Войти под сохраненным аккаунтом?", reply_markup=kb)
     else:
-        await message.answer("Привет! Для получения расписания введите ваш логин:")
+        await message.answer("Привет! Для получения доступа к личному кабинету введите ваш логин:")
         await state.set_state(AuthForm.waiting_for_login)
 
 
@@ -164,15 +181,11 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
         await state.set_state(AuthForm.authorized)
         await state.update_data(cached_html=html_or_err)
         
-        items = parse_schedule_items(html_or_err, day="today")
-        png_bytes = generate_schedule_image(items, title="Расписание на Сегодня", day_mode="today")
-        photo = BufferedInputFile(png_bytes, filename="schedule.png")
-        
         await status_msg.delete()
-        await callback.message.answer_photo(
-            photo=photo,
-            caption="✅ Авторизация успешна! Актуальное расписание:",
-            reply_markup=get_schedule_keyboard()
+        await callback.message.answer(
+            f"✅ Добро пожаловать, **{login}**!\nВыберите нужный раздел из меню ниже:",
+            parse_mode="Markdown",
+            reply_markup=get_main_menu_keyboard()
         )
     else:
         await status_msg.edit_text(f"❌ {html_or_err}")
@@ -209,20 +222,86 @@ async def process_password(message: Message, state: FSMContext):
         await state.update_data(cached_html=html_or_err)
         save_user_credentials(user_id, login, password)
         
-        items = parse_schedule_items(html_or_err, day="today")
-        png_bytes = generate_schedule_image(items, title="Расписание на Сегодня", day_mode="today")
-        photo = BufferedInputFile(png_bytes, filename="schedule.png")
-        
         await status_msg.delete()
-        await message.answer_photo(
-            photo=photo,
-            caption="✅ Авторизация успешна! Актуальное расписание:",
-            reply_markup=get_schedule_keyboard()
+        await message.answer(
+            f"✅ Авторизация успешна! Добро пожаловать, **{login}**.\nВыберите нужный раздел:",
+            parse_mode="Markdown",
+            reply_markup=get_main_menu_keyboard()
         )
     else:
         await status_msg.edit_text(f"❌ {html_or_err}")
         await state.clear()
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Обработчики главного меню
+# ─────────────────────────────────────────────────────────────────────────────
+
+@dp.callback_query(F.data == "menu_schedule")
+async def process_menu_schedule(callback: CallbackQuery, state: FSMContext):
+    """Переход в раздел Расписание."""
+    user_data = await state.get_data()
+    cached_html = user_data.get("cached_html")
+    
+    if not cached_html:
+        login = user_data.get("login")
+        password = user_data.get("password")
+        if not login or not password:
+            await callback.answer("Сессия истекла. Нажмите /start заново.", show_alert=True)
+            return
+        
+        await callback.answer("🔄 Загружаем данные...")
+        success, html_or_err = await get_schedule_html(login, password)
+        if success:
+            cached_html = html_or_err
+            await state.update_data(cached_html=cached_html)
+        else:
+            await callback.message.answer("❌ Не удалось обновить данные с сайта ToU.")
+            return
+
+    # По умолчанию при входе в раздел показываем расписание на Сегодня
+    items = parse_schedule_items(cached_html, day="today")
+    png_bytes = generate_schedule_image(items, title="Расписание на Сегодня", day_mode="today")
+    photo = BufferedInputFile(png_bytes, filename="schedule.png")
+    
+    await callback.message.delete()
+    await callback.message.answer_photo(
+        photo=photo,
+        caption="📅 **Раздел: Расписание**\nВыберите нужный день:",
+        parse_mode="Markdown",
+        reply_markup=get_schedule_keyboard()
+    )
+
+
+@dp.callback_query(F.data == "menu_important_dates")
+async def process_menu_important_dates(callback: CallbackQuery):
+    """Заглушка раздела Важная информация."""
+    await callback.answer("📌 Этот раздел находится в разработке!", show_alert=True)
+
+
+@dp.callback_query(F.data == "menu_grades")
+async def process_menu_grades(callback: CallbackQuery):
+    """Заглушка раздела Успеваемость."""
+    await callback.answer("📊 Этот раздел находится в разработке!", show_alert=True)
+
+
+@dp.callback_query(F.data == "back_to_main_menu")
+async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
+    """Возврат в Главное меню."""
+    user_data = await state.get_data()
+    login = user_data.get("login", "пользователь")
+    
+    await callback.message.delete()
+    await callback.message.answer(
+        f"🏠 **Главное меню**: ",
+        parse_mode="Markdown",
+        reply_markup=get_main_menu_keyboard()
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Переключение дней в разделе Расписание
+# ─────────────────────────────────────────────────────────────────────────────
 
 @dp.callback_query(F.data.startswith("sched_"))
 async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
@@ -258,7 +337,7 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_media(
             media=InputMediaPhoto(
                 media=photo,
-                caption=f"Обновлено: **{label}**",
+                caption=f"📅 **Раздел: Расписание**\nВыбрано: **{label}**",
                 parse_mode="Markdown",
             ),
             reply_markup=get_schedule_keyboard()
@@ -269,7 +348,7 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
         else:
             await callback.message.answer_photo(
                 photo=photo,
-                caption=f"Обновлено: **{label}**",
+                caption=f"📅 **Раздел: Расписание**\nВыбрано: **{label}**",
                 parse_mode="Markdown",
                 reply_markup=get_schedule_keyboard()
             )
