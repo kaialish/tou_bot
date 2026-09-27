@@ -1,13 +1,18 @@
-# Секретные файлы
-config.py
+# Секретные файлы и ключи
 .env
-
-# Временные файлы и кэш
-debug.html
+secret.key
+users_data.db
 users.db
+
+# Временные файлы, кэш и артефакты отладки
+debug.html
+debug_schedule.html
 __pycache__/
 *.pyc
+
+# Виртуальное окружение
 .venv/
 venv/
-.vs/
 
+# Настройки среды разработки Visual Studio
+.vs/
