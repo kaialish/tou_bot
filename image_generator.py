@@ -1,8 +1,8 @@
-from PIL import Image, ImageDraw, ImageFont
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
+from PIL import Image, ImageDraw, ImageFont
 
-# Названия дней недели на русском (weekday() → индекс 0-6)
+# Названия дней недели на русском
 WEEKDAYS_RU = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
 
 # Цвета акцента для разных типов занятий
@@ -26,7 +26,7 @@ DAY_HEADER_COLORS = [
 WIDTH        = 660
 ROW_HEIGHT   = 90
 HDR_HEIGHT   = 95     # шапка всего изображения
-DAY_HDR_H    = 40     # высота плашки дня недели (только для week)
+DAY_HDR_H    = 40     # высота плашки дня недели (для week)
 PADDING      = 18
 
 
@@ -36,7 +36,7 @@ def _get_accent_color(lesson_type: str) -> tuple:
     for key, color in TYPE_COLORS.items():
         if key in lower:
             return color
-    return (148, 163, 184)  # серый по умолчанию
+    return (148, 163, 184)
 
 
 def _load_fonts() -> tuple:
@@ -98,26 +98,18 @@ def _draw_main_header(draw, title: str, date_str: str,
     draw.rectangle([0, HDR_HEIGHT - 8, WIDTH, HDR_HEIGHT - 6], fill=(52, 95, 155))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Публичный API
-# ─────────────────────────────────────────────────────────────────────────────
-
-def generate_schedule_image(schedule_data: list[dict], title: str = "Расписание занятий") -> bytes:
+def generate_schedule_image(schedule_data: list[dict], title: str = "Расписание занятий", day_mode: str = "today") -> bytes:
     """
-    Генерирует PNG-изображение расписания.
-
-    Если в элементах есть поле "day" (недельный режим) — рисует секции по дням недели.
-    Иначе — обычное однодневное расписание.
+    Публичная функция генерации PNG-изображения расписания.
+    day_mode: "today", "tomorrow" или "week"
     """
-    is_week = bool(schedule_data and "day" in schedule_data[0])
-
-    if is_week:
+    if day_mode == "week":
         return _generate_week_image(schedule_data, title)
     else:
-        return _generate_day_image(schedule_data, title)
+        return _generate_day_image(schedule_data, title, day_mode=day_mode)
 
 
-def _generate_day_image(schedule_data: list[dict], title: str) -> bytes:
+def _generate_day_image(schedule_data: list[dict], title: str, day_mode: str = "today") -> bytes:
     """Рендер расписания на один день (сегодня / завтра)."""
     height = HDR_HEIGHT + (len(schedule_data) * ROW_HEIGHT) + PADDING
     if not schedule_data:
@@ -128,9 +120,13 @@ def _generate_day_image(schedule_data: list[dict], title: str) -> bytes:
 
     font_title, font_date, _, font_main, font_sub = _load_fonts()
 
-    now      = datetime.now()
-    day_name = WEEKDAYS_RU[now.weekday()]
-    date_str = f"{day_name}, {now.strftime('%d.%m.%Y')}"
+    # Рассчитываем точную дату для "сегодня" или "завтра"
+    target_dt = datetime.now()
+    if day_mode == "tomorrow":
+        target_dt += timedelta(days=1)
+
+    day_name = WEEKDAYS_RU[target_dt.weekday()]
+    date_str = f"{day_name}, {target_dt.strftime('%d.%m.%Y')}"
     _draw_main_header(draw, title, date_str, font_title, font_date)
 
     if not schedule_data:
@@ -146,17 +142,16 @@ def _generate_day_image(schedule_data: list[dict], title: str) -> bytes:
 
 def _generate_week_image(schedule_data: list[dict], title: str) -> bytes:
     """Рендер недельного расписания с секциями по дням."""
-    # Группируем занятия по дате (сохраняем порядок появления)
     days_order: list[str] = []
     days_map: dict[str, list[dict]] = {}
+    
     for item in schedule_data:
-        d = item["day"]   # строка вида "28.09.2026"
+        d = item["day"]   # Название дня, например "Понедельник"
         if d not in days_map:
             days_map[d] = []
             days_order.append(d)
         days_map[d].append(item)
 
-    # Вычисляем высоту: шапка + для каждого дня (заголовок дня + карточки)
     total_lessons = sum(len(v) for v in days_map.values())
     height = HDR_HEIGHT + len(days_order) * (DAY_HDR_H + 8) + total_lessons * ROW_HEIGHT + PADDING
     if not days_order:
@@ -176,31 +171,20 @@ def _generate_week_image(schedule_data: list[dict], title: str) -> bytes:
         return _to_bytes(image)
 
     y = HDR_HEIGHT + 6
-    for idx, date_str_day in enumerate(days_order):
+    for idx, day_label in enumerate(days_order):
         color = DAY_HEADER_COLORS[idx % len(DAY_HEADER_COLORS)]
-
-        # Определяем название дня недели по дате "28.09.2026"
-        try:
-            dt = datetime.strptime(date_str_day, "%d.%m.%Y")
-            weekday_label = f"{WEEKDAYS_RU[dt.weekday()]}, {dt.strftime('%d.%m')}"
-        except ValueError:
-            weekday_label = date_str_day
 
         # Плашка с названием дня
         draw.rectangle([PADDING, y, WIDTH - PADDING, y + DAY_HDR_H], fill=color)
-        draw.text((PADDING + 14, y + 11), weekday_label, fill=(255, 255, 255), font=font_day)
+        draw.text((PADDING + 14, y + 11), day_label, fill=(255, 255, 255), font=font_day)
         y += DAY_HDR_H + 4
 
-        lessons = days_map[date_str_day]
-        if not lessons:
-            draw.text((PADDING + 14, y + 8), "Занятий нет", fill=(100, 116, 139), font=font_sub)
-            y += 30
-        else:
-            for item in lessons:
-                _draw_lesson_card(draw, item, PADDING, y, WIDTH - PADDING, font_main, font_sub)
-                y += ROW_HEIGHT
+        lessons = days_map[day_label]
+        for item in lessons:
+            _draw_lesson_card(draw, item, PADDING, y, WIDTH - PADDING, font_main, font_sub)
+            y += ROW_HEIGHT
 
-        y += 8  # отступ между днями
+        y += 8
 
     return _to_bytes(image)
 
@@ -210,4 +194,3 @@ def _to_bytes(image: Image.Image) -> bytes:
     image.save(buf, format="PNG")
     buf.seek(0)
     return buf.getvalue()
-

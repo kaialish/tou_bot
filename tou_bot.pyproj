@@ -11,6 +11,7 @@
     <OutputPath>.</OutputPath>
     <Name>tou_bot</Name>
     <RootNamespace>tou_bot</RootNamespace>
+    <SuppressEnvironmentCreationPrompt>True</SuppressEnvironmentCreationPrompt>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -23,12 +24,13 @@
   <ItemGroup>
     <Compile Include="bot.py" />
     <Compile Include="config.py" />
-    <Compile Include="config.py.example" />
+    <Compile Include="database.py" />
     <Compile Include="image_generator.py" />
     <Compile Include="parser.py" />
     <Compile Include="tou_client.py" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include=".env" />
     <Content Include=".gitignore" />
     <Content Include="requirements.txt" />
   </ItemGroup>
