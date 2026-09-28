@@ -15,3 +15,11 @@ python-dotenv
 
 # Шифрование Fernet для безопасного хранения паролей пользователей в SQLite
 cryptography
+aiogram>=3.0.0
+httpx
+aiohttp
+beautifulsoup4
+lxml
+pillow
+cryptography
+python-dotenv
