@@ -1,8 +1,10 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Загружаем переменные окружения из .env
-load_dotenv()
+# Определяем корень проекта и загружаем .env
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
@@ -14,7 +16,7 @@ if not BOT_TOKEN:
     raise ValueError("ОШИБКА: BOT_TOKEN не найден в файле .env!")
 
 # URL-адреса портала Торайгыров Университета
-LOGIN_URL    = "https://tou.edu.kz/student_cabinet/index.php?lang=rus"
+LOGIN_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus"
 SCHEDULE_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus&mod=rasp"
 DASHBOARD_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus&mod=dashboard"
 

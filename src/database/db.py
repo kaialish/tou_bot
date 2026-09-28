@@ -1,10 +1,17 @@
 import sqlite3
 import os
+from pathlib import Path
 from cryptography.fernet import Fernet
 
+# Определение путей к директории хранения данных
+DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+KEY_FILE = DATA_DIR / "secret.key"
+DB_NAME = str(DATA_DIR / "users_data.db")
+
 # Чтение или генерация ключа шифрования
-KEY_FILE = "secret.key"
-if not os.path.exists(KEY_FILE):
+if not KEY_FILE.exists():
     key = Fernet.generate_key()
     with open(KEY_FILE, "wb") as f:
         f.write(key)
@@ -13,7 +20,6 @@ else:
         key = f.read()
 
 cipher = Fernet(key)
-DB_NAME = "users_data.db"
 
 
 def init_db():
