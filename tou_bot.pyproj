@@ -23,15 +23,42 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="bot.py" />
-    <Compile Include="config.py" />
-    <Compile Include="database.py" />
-    <Compile Include="image_generator.py" />
-    <Compile Include="parser.py" />
-    <Compile Include="tou_client.py" />
+    <Compile Include="src\__init__.py" />
+    <Compile Include="src\config.py" />
+    <Compile Include="src\database\__init__.py" />
+    <Compile Include="src\database\db.py" />
+    <Compile Include="src\handlers\__init__.py" />
+    <Compile Include="src\handlers\admin.py" />
+    <Compile Include="src\handlers\auth.py" />
+    <Compile Include="src\handlers\common.py" />
+    <Compile Include="src\handlers\schedule.py" />
+    <Compile Include="src\keyboards\__init__.py" />
+    <Compile Include="src\keyboards\inline.py" />
+    <Compile Include="src\services\__init__.py" />
+    <Compile Include="src\services\image_generator.py" />
+    <Compile Include="src\services\parser.py" />
+    <Compile Include="src\services\tou_client.py" />
+    <Compile Include="src\states\__init__.py" />
+    <Compile Include="src\states\admin.py" />
+    <Compile Include="src\states\auth.py" />
+    <Compile Include="src\utils\__init__.py" />
+    <Compile Include="src\utils\cleanup.py" />
+    <Compile Include="src\utils\texts.py" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include=".env" />
+    <Folder Include="src\" />
+    <Folder Include="src\database\" />
+    <Folder Include="src\handlers\" />
+    <Folder Include="src\keyboards\" />
+    <Folder Include="src\services\" />
+    <Folder Include="src\states\" />
+    <Folder Include="src\utils\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include=".env.example" />
     <Content Include=".gitignore" />
+    <Content Include="CHANGELOG.md" />
+    <Content Include="README.md" />
     <Content Include="requirements.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />

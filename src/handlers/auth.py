@@ -3,20 +3,15 @@ from aiogram.filters import CommandStart
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 )
-from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 from src.database import get_user_credentials, save_user_credentials
 from src.services import get_schedule_html
-from src.keyboards import get_main_menu_keyboard
+from src.keyboards import get_disclaimer_keyboard, get_main_menu_keyboard
+from src.states import AuthForm
+from src.utils import DISCLAIMER_TEXT
 
 router = Router()
-
-
-class AuthForm(StatesGroup):
-    waiting_for_login = State()
-    waiting_for_password = State()
-    authorized = State()
 
 
 @router.message(CommandStart())
@@ -32,13 +27,20 @@ async def cmd_start(message: Message, state: FSMContext):
         ])
         await message.answer("С возвращением! Войти под сохраненным аккаунтом?", reply_markup=kb)
     else:
-        await message.answer("Привет! Для получения доступа к личному кабинету введите ваш логин:")
-        await state.set_state(AuthForm.waiting_for_login)
+        # Показываем дисклеймер перед первичным вводом
+        await message.answer(DISCLAIMER_TEXT, parse_mode="HTML", reply_markup=get_disclaimer_keyboard())
+        await state.set_state(AuthForm.waiting_for_disclaimer_accept)
 
 
 @router.callback_query(F.data == "manual_login")
 async def process_manual_login(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("Введите ваш логин:")
+    await callback.message.edit_text(DISCLAIMER_TEXT, parse_mode="HTML", reply_markup=get_disclaimer_keyboard())
+    await state.set_state(AuthForm.waiting_for_disclaimer_accept)
+
+
+@router.callback_query(F.data == "accept_disclaimer")
+async def process_accept_disclaimer(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text("👤 Введите ваш логин от портала ToU:")
     await state.set_state(AuthForm.waiting_for_login)
 
 
@@ -48,7 +50,8 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
     saved_data = get_user_credentials(user_id)
     if not saved_data:
         await callback.answer("Данные не найдены. Введите логин вручную.", show_alert=True)
-        await state.set_state(AuthForm.waiting_for_login)
+        await callback.message.edit_text(DISCLAIMER_TEXT, parse_mode="HTML", reply_markup=get_disclaimer_keyboard())
+        await state.set_state(AuthForm.waiting_for_disclaimer_accept)
         return
 
     login, password = saved_data
@@ -63,8 +66,8 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
 
         await status_msg.delete()
         await callback.message.answer(
-            f"✅ Добро пожаловать, **{login}**!\nВыберите нужный раздел из меню ниже:",
-            parse_mode="Markdown",
+            f"✅ Добро пожаловать, <b>{login}</b>!\nВыберите нужный раздел из меню ниже:",
+            parse_mode="HTML",
             reply_markup=get_main_menu_keyboard()
         )
     else:
@@ -75,7 +78,7 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
 @router.message(AuthForm.waiting_for_login)
 async def process_login(message: Message, state: FSMContext):
     await state.update_data(login=message.text.strip())
-    await message.answer("Введите ваш пароль:")
+    await message.answer("🔑 Введите ваш пароль:")
     await state.set_state(AuthForm.waiting_for_password)
 
 
@@ -104,8 +107,8 @@ async def process_password(message: Message, state: FSMContext):
 
         await status_msg.delete()
         await message.answer(
-            f"✅ Авторизация успешна! Добро пожаловать, **{login}**.\nВыберите нужный раздел:",
-            parse_mode="Markdown",
+            f"✅ Авторизация успешна! Добро пожаловать, <b>{login}</b>.\nВыберите нужный раздел:",
+            parse_mode="HTML",
             reply_markup=get_main_menu_keyboard()
         )
     else:

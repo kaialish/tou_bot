@@ -10,6 +10,7 @@ from src.services import (
     generate_schedule_image, generate_week_album
 )
 from src.keyboards import get_schedule_keyboard
+from src.utils import cleanup_previous_album
 
 router = Router()
 
@@ -36,16 +37,22 @@ async def process_menu_schedule(callback: CallbackQuery, state: FSMContext):
             await callback.message.answer("❌ Не удалось обновить данные с сайта ToU.")
             return
 
+    # Очищаем старый альбом (если остался)
+    await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
+
     # По умолчанию при входе в раздел показываем расписание на Сегодня
     items = parse_schedule_items(cached_html, day="today")
     png_bytes = generate_schedule_image(items, title="Расписание на Сегодня", day_mode="today")
     photo = BufferedInputFile(png_bytes, filename="schedule.png")
 
-    await callback.message.delete()
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
     await callback.message.answer_photo(
         photo=photo,
-        caption="📅 **Раздел: Расписание**\nВыберите нужный день:",
-        parse_mode="Markdown",
+        caption="📅 <b>Раздел: Расписание</b>\nВыберите нужный день:",
+        parse_mode="HTML",
         reply_markup=get_schedule_keyboard()
     )
 
@@ -82,33 +89,19 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
         # Недельное расписание → альбом (5 фото по дням)
         # ────────────────────────────────────────────────────────────────────────────
         # 1. Удаляем старое фото-сообщение или старый альбом
-        prev_album_ids: list[int] = user_data.get("week_album_ids", [])
-        prev_nav_id: int | None   = user_data.get("week_nav_id")
-        if prev_album_ids:
-            for msg_id in prev_album_ids:
-                try:
-                    await callback.bot.delete_message(callback.message.chat.id, msg_id)
-                except Exception:
-                    pass
-            if prev_nav_id:
-                try:
-                    await callback.bot.delete_message(callback.message.chat.id, prev_nav_id)
-                except Exception:
-                    pass
-        else:
-            # Удаляем одиночное фото-сообщение (today/tomorrow режим)
-            try:
-                await callback.message.delete()
-            except Exception:
-                pass
+        await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
 
         # 2. Генерируем PNG для каждого дня
         day_images = generate_week_album(items)
 
         if not day_images:
             nav_msg = await callback.message.answer(
-                "📅 **Недельное расписание**\n\nЗанятий на этой неделе нет.",
-                parse_mode="Markdown",
+                "📅 <b>Недельное расписание</b>\n\nЗанятий на этой неделе нет.",
+                parse_mode="HTML",
                 reply_markup=get_schedule_keyboard()
             )
             await state.update_data(week_album_ids=[], week_nav_id=nav_msg.message_id)
@@ -118,8 +111,8 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
         media_group = [
             InputMediaPhoto(
                 media=BufferedInputFile(png, filename=f"day_{i+1}.png"),
-                caption=f"📅 **{name}**",
-                parse_mode="Markdown",
+                caption=f"📅 <b>{name}</b>",
+                parse_mode="HTML",
             )
             for i, (name, png) in enumerate(day_images)
         ]
@@ -128,8 +121,8 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
 
         # 4. Отправляем клавиатуру отдельным сообщением
         nav_msg = await callback.message.answer(
-            "📅 **Расписание на неделю** — пролистайте карточки по дням →",
-            parse_mode="Markdown",
+            "📅 <b>Расписание на неделю</b> — пролистайте карточки по дням →",
+            parse_mode="HTML",
             reply_markup=get_schedule_keyboard()
         )
         # 5. Сохраняем ID для последующей чистки
@@ -141,27 +134,16 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
         # ────────────────────────────────────────────────────────────────────────────
         # 1. Если предыдущий режим был альбомным — чистим его
         prev_album_ids: list[int] = user_data.get("week_album_ids", [])
-        prev_nav_id: int | None   = user_data.get("week_nav_id")
         if prev_album_ids:
-            for msg_id in prev_album_ids:
-                try:
-                    await callback.bot.delete_message(callback.message.chat.id, msg_id)
-                except Exception:
-                    pass
-            if prev_nav_id:
-                try:
-                    await callback.bot.delete_message(callback.message.chat.id, prev_nav_id)
-                except Exception:
-                    pass
-            await state.update_data(week_album_ids=[], week_nav_id=None)
+            await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
 
             # Отправляем новое фото-сообщение
             png_bytes = generate_schedule_image(items, title=f"Расписание на {label}", day_mode=day)
             photo = BufferedInputFile(png_bytes, filename="schedule.png")
             await callback.message.answer_photo(
                 photo=photo,
-                caption=f"📅 **Раздел: Расписание**\nВыбрано: **{label}**",
-                parse_mode="Markdown",
+                caption=f"📅 <b>Раздел: Расписание</b>\nВыбрано: <b>{label}</b>",
+                parse_mode="HTML",
                 reply_markup=get_schedule_keyboard()
             )
         else:
@@ -172,8 +154,8 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
                 await callback.message.edit_media(
                     media=InputMediaPhoto(
                         media=photo,
-                        caption=f"📅 **Раздел: Расписание**\nВыбрано: **{label}**",
-                        parse_mode="Markdown",
+                        caption=f"📅 <b>Раздел: Расписание</b>\nВыбрано: <b>{label}</b>",
+                        parse_mode="HTML",
                     ),
                     reply_markup=get_schedule_keyboard()
                 )
@@ -181,7 +163,7 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
                 if "message is not modified" not in str(e):
                     await callback.message.answer_photo(
                         photo=photo,
-                        caption=f"📅 **Раздел: Расписание**\nВыбрано: **{label}**",
-                        parse_mode="Markdown",
+                        caption=f"📅 <b>Раздел: Расписание</b>\nВыбрано: <b>{label}</b>",
+                        parse_mode="HTML",
                         reply_markup=get_schedule_keyboard()
                     )

@@ -2,18 +2,14 @@ import asyncio
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
-from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 from src.config import ADMIN_IDS
 from src.database import get_users_stats, get_all_user_ids
 from src.keyboards import get_admin_keyboard
+from src.states import AdminState
 
 router = Router()
-
-
-class AdminState(StatesGroup):
-    waiting_for_broadcast_msg = State()
 
 
 @router.message(Command("admin"))
@@ -22,7 +18,7 @@ async def cmd_admin(message: Message):
         await message.answer("❌ У вас нет прав для выполнения этой команды.")
         return
 
-    await message.answer("🛠️ **Панель Администратора**", parse_mode="Markdown", reply_markup=get_admin_keyboard())
+    await message.answer("🛠️ <b>Панель Администратора</b>", parse_mode="HTML", reply_markup=get_admin_keyboard())
 
 
 @router.callback_query(F.data == "admin_stats")
@@ -31,14 +27,14 @@ async def process_admin_stats(callback: CallbackQuery):
         return
 
     count, logins = get_users_stats()
-    logins_str = "\n".join([f"• `{login}`" for login in logins[:20]]) or "Нет зарегистрированных пользователей"
+    logins_str = "\n".join([f"• <code>{login}</code>" for login in logins[:20]]) or "Нет зарегистрированных пользователей"
 
     text = (
-        f"📊 **Статистика бота:**\n\n"
-        f"👤 Всего пользователей: **{count}**\n\n"
+        f"📊 <b>Статистика бота:</b>\n\n"
+        f"👤 Всего пользователей: <b>{count}</b>\n\n"
         f"📋 Последние авторизованные логины:\n{logins_str}"
     )
-    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=get_admin_keyboard())
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_admin_keyboard())
 
 
 @router.callback_query(F.data == "admin_broadcast")
@@ -70,9 +66,9 @@ async def process_broadcast_send(message: Message, state: FSMContext):
             fail_count += 1
 
     await message.answer(
-        f"✅ **Рассылка завершена!**\n\n"
-        f"Успешно доставлено: **{success_count}**\n"
-        f"Ошибок отправки (заблокировали бота): **{fail_count}**",
-        parse_mode="Markdown"
+        f"✅ <b>Рассылка завершена!</b>\n\n"
+        f"Успешно доставлено: <b>{success_count}</b>\n"
+        f"Ошибок отправки (заблокировали бота): <b>{fail_count}</b>",
+        parse_mode="HTML"
     )
     await state.clear()
