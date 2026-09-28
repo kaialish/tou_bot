@@ -1,4 +1,5 @@
 aiogram>=3.0.0
+httpx
 aiohttp
 beautifulsoup4
 lxml
