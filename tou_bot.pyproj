@@ -58,6 +58,7 @@
     <Content Include=".env.example" />
     <Content Include=".gitignore" />
     <Content Include="CHANGELOG.md" />
+    <Content Include="IDEAS.md" />
     <Content Include="README.md" />
     <Content Include="requirements.txt" />
   </ItemGroup>

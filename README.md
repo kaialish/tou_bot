@@ -17,6 +17,7 @@ tou_bot/
 ├── requirements.txt              # Зависимости проекта
 ├── README.md                     # Документация проекта
 ├── CHANGELOG.md                  # История версий
+├── IDEAS.md                      # Копилка идей и бэклог фич
 ├── tou_bot.pyproj                # Проектный файл для Visual Studio
 ├── tou_bot.slnx                  # Решение для Visual Studio
 │
