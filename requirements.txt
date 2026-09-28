@@ -1,4 +1,7 @@
-aiogram
-httpx
+aiogram>=3.0.0
+aiohttp
 beautifulsoup4
+lxml
 pillow
+cryptography
+python-dotenv
