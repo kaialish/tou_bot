@@ -1,5 +1,5 @@
 import httpx
-from config import get_headers, LOGIN_URL, SCHEDULE_URL
+from src.config import get_headers, LOGIN_URL, SCHEDULE_URL
 
 
 async def get_schedule_html(login: str, password: str) -> tuple[bool, str]:
