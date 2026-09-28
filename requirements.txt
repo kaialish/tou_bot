@@ -2,3 +2,4 @@ aiogram
 httpx
 beautifulsoup4
 pillow
+python-dotenv
