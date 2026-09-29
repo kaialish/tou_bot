@@ -28,8 +28,16 @@ async def process_menu_key_dates(callback: CallbackQuery, state: FSMContext):
             cached_html = html_or_err
             await state.update_data(cached_html=cached_html)
         else:
-            await callback.message.answer("❌ Не удалось обновить данные с сайта ToU.")
+            retry_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Повторить попытку", callback_data="menu_key_dates")],
+                [InlineKeyboardButton(text="⬅️ Главное меню", callback_data="back_to_main_menu")]
+            ])
+            try:
+                await callback.message.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
+            except Exception:
+                await callback.message.answer(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
             return
+
 
     await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
 

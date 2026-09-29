@@ -1,4 +1,4 @@
-from .tou_client import get_schedule_html
+from .tou_client import get_schedule_html, PORTAL_DOWN_MESSAGE
 from .parser import (
     parse_schedule_items,
     parse_key_dates,
@@ -9,10 +9,11 @@ from .scheduler import start_scheduler
 
 __all__ = [
     "get_schedule_html",
+    "PORTAL_DOWN_MESSAGE",
     "parse_schedule_items",
     "parse_key_dates",
     "format_key_dates_message",
     "generate_schedule_image",
     "generate_week_album",
     "start_scheduler",
-]
+]

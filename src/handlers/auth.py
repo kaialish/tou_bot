@@ -71,8 +71,11 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
             reply_markup=get_main_menu_keyboard()
         )
     else:
-        await status_msg.edit_text(f"❌ {html_or_err}")
-        await state.clear()
+        retry_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="quick_login")],
+            [InlineKeyboardButton(text="✏️ Ввести другой логин", callback_data="manual_login")]
+        ])
+        await status_msg.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
 
 
 @router.message(AuthForm.waiting_for_login)
@@ -112,5 +115,49 @@ async def process_password(message: Message, state: FSMContext):
             reply_markup=get_main_menu_keyboard()
         )
     else:
-        await status_msg.edit_text(f"❌ {html_or_err}")
-        await state.clear()
+        retry_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="retry_auth")],
+            [InlineKeyboardButton(text="✏️ Ввести заново", callback_data="manual_login")]
+        ])
+        await status_msg.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
+
+
+@router.callback_query(F.data == "retry_auth")
+async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
+    """Повторная попытка авторизации после сбоя портала ToU."""
+    user_data = await state.get_data()
+    login = user_data.get("login")
+    password = user_data.get("password")
+
+    if not login or not password:
+        saved_data = get_user_credentials(callback.from_user.id)
+        if saved_data:
+            login, password = saved_data
+            await state.update_data(login=login, password=password)
+        else:
+            await callback.answer("Данные не найдены. Введите логин заново.", show_alert=True)
+            await callback.message.edit_text("👤 Введите ваш логин от портала ToU:")
+            await state.set_state(AuthForm.waiting_for_login)
+            return
+
+    status_msg = await callback.message.edit_text("🔄 Подключаемся к порталу ToU...")
+
+    success, html_or_err = await get_schedule_html(login, password)
+    if success:
+        await state.set_state(AuthForm.authorized)
+        await state.update_data(cached_html=html_or_err)
+        save_user_credentials(callback.from_user.id, login, password)
+
+        await status_msg.delete()
+        await callback.message.answer(
+            f"✅ Авторизация успешна! Добро пожаловать, <b>{login}</b>.\nВыберите нужный раздел:",
+            parse_mode="HTML",
+            reply_markup=get_main_menu_keyboard()
+        )
+    else:
+        retry_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="retry_auth")],
+            [InlineKeyboardButton(text="✏️ Ввести заново", callback_data="manual_login")]
+        ])
+        await status_msg.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
+
