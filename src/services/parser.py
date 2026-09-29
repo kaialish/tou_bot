@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from bs4 import BeautifulSoup
 
 WEEKDAY_MAP = {
@@ -100,7 +100,11 @@ def parse_schedule_items(html_content: str, day: str = "today") -> list[dict]:
     target_dt = now + timedelta(days=1) if day == "tomorrow" else now
     target_day_name = _IDX_TO_WEEKDAY.get(target_dt.weekday(), "")
 
-    return [item for item in all_items if item["day"] == target_day_name]
+    return [
+        item for item in all_items 
+        if item.get("day", "").strip().lower() == target_day_name.lower()
+    ]
+
 
 
 # Список ключевых дат в точном соответствии со скриншотом

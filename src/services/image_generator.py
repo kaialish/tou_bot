@@ -57,6 +57,9 @@ DAY_HDR_H    = 40     # высота плашки дня недели (для we
 PADDING      = 18
 
 
+from functools import lru_cache
+
+
 def _get_accent_color(lesson_type: str) -> tuple:
     """Возвращает цвет акцента по типу занятия."""
     lower = lesson_type.lower()
@@ -66,8 +69,9 @@ def _get_accent_color(lesson_type: str) -> tuple:
     return (148, 163, 184)
 
 
+@lru_cache(maxsize=1)
 def _load_fonts() -> tuple:
-    """Загружает шрифты. Возвращает (font_title, font_date, font_day, font_main, font_sub)."""
+    """Загружает шрифты. Кэширует в памяти для максимальной скорости рендера."""
     candidates = ["arial.ttf", "ArialMT.ttf", "DejaVuSans.ttf"]
     for name in candidates:
         try:
@@ -82,6 +86,7 @@ def _load_fonts() -> tuple:
             continue
     default = ImageFont.load_default()
     return default, default, default, default, default
+
 
 
 def _draw_lesson_card(draw, item: dict, x1: int, y: int, x2: int,
@@ -142,7 +147,7 @@ def generate_week_album(schedule_data: list[dict]) -> list[tuple[str, bytes]]:
     Возвращает список пар (отображаемое_имя_с_датой, png_bytes) только для дней с занятиями.
     Используется для отправки альбома в Telegram.
     """
-    # Группируем занятия по дням, сохраняя порядок
+    # Группируем занятия по дням, упорядочивая их по дням недели
     days_order: list[str] = []
     days_map: dict[str, list[dict]] = {}
     for item in schedule_data:
@@ -151,6 +156,8 @@ def generate_week_album(schedule_data: list[dict]) -> list[tuple[str, bytes]]:
             days_map[d] = []
             days_order.append(d)
         days_map[d].append(item)
+
+    days_order.sort(key=lambda name: WEEKDAY_MAP.get(name.strip().lower(), 99))
 
     result: list[tuple[str, bytes]] = []
     for idx, day_name in enumerate(days_order):
@@ -287,6 +294,7 @@ def _generate_week_image(schedule_data: list[dict], title: str) -> bytes:
 
 def _to_bytes(image: Image.Image) -> bytes:
     buf = io.BytesIO()
-    image.save(buf, format="PNG", optimize=True)
+    image.save(buf, format="PNG", optimize=False)
     buf.seek(0)
     return buf.getvalue()
+
