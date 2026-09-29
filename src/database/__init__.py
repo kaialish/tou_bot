@@ -10,6 +10,8 @@ from .db import (
     get_subscribed_users,
     save_cached_schedule,
     get_cached_schedule,
+    set_maintenance_status,
+    is_maintenance_active,
 )
 
 __all__ = [
@@ -24,4 +26,6 @@ __all__ = [
     "get_subscribed_users",
     "save_cached_schedule",
     "get_cached_schedule",
+    "set_maintenance_status",
+    "is_maintenance_active",
 ]

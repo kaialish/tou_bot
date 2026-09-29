@@ -56,6 +56,14 @@ def init_db():
         )
     """)
 
+    # Таблица системных настроек и состояний бота
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bot_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -204,4 +212,43 @@ def get_cached_schedule(user_id: int) -> tuple[str, str] | None:
 
     if not row:
         return None
-    return row[0], row[1]
+    return row[0], row[1]
+
+
+def set_maintenance_status(status: bool) -> None:
+    """Устанавливает флаг технического перерыва в БД."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bot_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
+    val = "1" if status else "0"
+    cursor.execute("""
+        INSERT INTO bot_settings (key, value)
+        VALUES ('in_maintenance', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    """, (val,))
+    conn.commit()
+    conn.close()
+
+
+def is_maintenance_active() -> bool:
+    """Проверяет, был ли бот переведён в режим технического обслуживания."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bot_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
+    cursor.execute("SELECT value FROM bot_settings WHERE key = 'in_maintenance'")
+    row = cursor.fetchone()
+    conn.close()
+    if row and row[0] == "1":
+        return True
+    return False
+
