@@ -30,3 +30,21 @@ def get_headers(mode: str = "random") -> dict:
         ),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     }
+
+
+# Расписание пар Торайгыровского Университета
+# Структура: (номер пары, время начала HH:MM, время окончания HH:MM, длительность перерыва в минутах)
+LESSONS_SCHEDULE = [
+    {"number": 1, "start": "08:15", "end": "09:05", "break_duration": 10},
+    {"number": 2, "start": "09:15", "end": "10:05", "break_duration": 10},
+    {"number": 3, "start": "10:15", "end": "11:05", "break_duration": 10},
+    {"number": 4, "start": "11:15", "end": "12:05", "break_duration": 30},
+    {"number": 5, "start": "12:35", "end": "13:25", "break_duration": 10},
+    {"number": 6, "start": "13:35", "end": "14:25", "break_duration": 10},
+    {"number": 7, "start": "14:35", "end": "15:25", "break_duration": 5},
+    {"number": 8, "start": "15:30", "end": "16:20", "break_duration": 5},
+    {"number": 9, "start": "16:25", "end": "17:15", "break_duration": 5},
+    {"number": 10, "start": "17:20", "end": "18:10", "break_duration": 5},
+    {"number": 11, "start": "18:15", "end": "19:05", "break_duration": 5},
+    {"number": 12, "start": "19:10", "end": "20:00", "break_duration": 0},
+]

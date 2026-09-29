@@ -5,6 +5,7 @@ from .parser import (
     format_key_dates_message,
 )
 from .image_generator import generate_schedule_image, generate_week_album
+from .scheduler import start_scheduler
 
 __all__ = [
     "get_schedule_html",
@@ -13,4 +14,5 @@ __all__ = [
     "format_key_dates_message",
     "generate_schedule_image",
     "generate_week_album",
-]   
+    "start_scheduler",
+]

@@ -103,7 +103,7 @@ def _draw_lesson_card(draw, item: dict, x1: int, y: int, x2: int,
 
     # Правая колонка: предмет + аудитория · преподаватель
     subject = item.get("subject", "Предмет не указан")
-    draw.text((x1 + 145, card_y1 + 10), subject[:36], fill=(255, 30, 40), font=font_main)
+    draw.text((x1 + 145, card_y1 + 10), subject[:36], fill=(0, 0, 0), font=font_main)
 
     room    = item.get("room", "")
     teacher = item.get("teacher", "")
