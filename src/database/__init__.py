@@ -4,6 +4,10 @@ from .db import (
     get_user_credentials,
     get_users_stats,
     get_all_user_ids,
+    subscribe_to_notifications,
+    unsubscribe_from_notifications,
+    is_user_subscribed,
+    get_subscribed_users,
 )
 
 __all__ = [
@@ -12,4 +16,8 @@ __all__ = [
     "get_user_credentials",
     "get_users_stats",
     "get_all_user_ids",
+    "subscribe_to_notifications",
+    "unsubscribe_from_notifications",
+    "is_user_subscribed",
+    "get_subscribed_users",
 ]
