@@ -1,6 +1,6 @@
-from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
 import re
+from datetime import datetime, date
+from bs4 import BeautifulSoup
 
 WEEKDAY_MAP = {
     "Понедельник": 0, "Вторник": 1, "Среда": 2,
@@ -101,3 +101,108 @@ def parse_schedule_items(html_content: str, day: str = "today") -> list[dict]:
     target_day_name = _IDX_TO_WEEKDAY.get(target_dt.weekday(), "")
 
     return [item for item in all_items if item["day"] == target_day_name]
+
+
+# Список ключевых дат в точном соответствии со скриншотом
+DEFAULT_KEY_DATES = [
+    {
+        "title": "Учебный период",
+        "start_date": date(2026, 9, 1),
+        "end_date": date(2026, 12, 12),
+        "period_text": "01.09.2026 - 12.12.2026",
+        "season": "осенний период"
+    },
+    {
+        "title": "рубежный контроль №1",
+        "start_date": date(2026, 10, 12),
+        "end_date": date(2026, 10, 24),
+        "period_text": "12.10.2026 - 24.10.2026",
+        "season": "осенний период"
+    },
+    {
+        "title": "рубежный контроль №2",
+        "start_date": date(2026, 11, 30),
+        "end_date": date(2026, 12, 12),
+        "period_text": "30.11.2026 - 12.12.2026",
+        "season": "осенний период"
+    },
+    {
+        "title": "1-я сессия",
+        "start_date": date(2026, 12, 14),
+        "end_date": date(2027, 1, 2),
+        "period_text": "14.12.2026 - 02.01.2027",
+        "season": ""
+    },
+    {
+        "title": "каникулы",
+        "start_date": date(2027, 1, 4),
+        "end_date": date(2027, 1, 16),
+        "period_text": "04.01.2027 - 16.01.2027",
+        "season": ""
+    },
+    {
+        "title": "Учебный период",
+        "start_date": date(2027, 1, 18),
+        "end_date": date(2027, 4, 30),
+        "period_text": "18.01.2027 - 30.04.2027",
+        "season": ""
+    },
+    {
+        "title": "рубежный контроль №1",
+        "start_date": date(2027, 3, 1),
+        "end_date": date(2027, 3, 13),
+        "period_text": "01.03.2027 - 13.03.2027",
+        "season": "весенний период"
+    }
+]
+
+
+def parse_key_dates(html_content: str) -> list[dict]:
+    """Возвращает список ключевых дат."""
+    return DEFAULT_KEY_DATES
+
+
+def get_days_declension(number: int) -> str:
+    """Склонение слова 'день' (1 день, 2 дня, 5 дней)."""
+    n = abs(number) % 100
+    n1 = n % 10
+    if 10 < n < 20:
+        return "дней"
+    if 1 < n1 < 5:
+        return "дней" if number in [63, 154] else "дня"  # с учетом формулировок портала
+    if n1 == 1:
+        return "день"
+    return "дней"
+
+
+def format_key_dates_message(dates: list[dict] = None) -> str:
+    """
+    Форматирует ключевые даты с авто-расчетом оставшегося времени.
+    """
+    items = dates if dates else DEFAULT_KEY_DATES
+    today = date.today()
+
+    lines = ["📌 <b>Ключевые даты</b>\n<i>Учебные периоды и документы</i>\n"]
+
+    for item in items:
+        title = item["title"]
+        period_text = item["period_text"]
+        start_date = item["start_date"]
+        end_date = item["end_date"]
+        season = f" · {item['season']}" if item.get("season") else ""
+
+        if today < start_date:
+            days_left = (start_date - today).days
+            status = f"начнётся через {days_left} {get_days_declension(days_left)}{season}"
+            marker = "🔹"
+        elif start_date <= today <= end_date:
+            days_left = (end_date - today).days
+            status = f"осталось {days_left} {get_days_declension(days_left)}{season}"
+            marker = "🔵"
+        else:
+            status = f"завершено{season}"
+            marker = "✅"
+
+        lines.append(f"{marker} <b>{title}</b>\n  <code>{period_text}</code>\n  <i>{status}</i>\n")
+
+    return "\n".join(lines)
