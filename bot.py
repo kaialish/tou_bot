@@ -6,7 +6,12 @@ from aiogram.enums import ParseMode
 from aiogram.types import BotCommand
 
 from src.config import BOT_TOKEN
-from src.database import init_db, get_all_user_ids
+from src.database import (
+    init_db,
+    get_all_user_ids,
+    set_maintenance_status,
+    is_maintenance_active,
+)
 from src.handlers import main_router
 from src.services import start_scheduler
 
@@ -26,11 +31,18 @@ MAINTENANCE_TEXT = (
     "Спасибо за понимание 🙏"
 )
 
+RESUME_TEXT = (
+    "🚀 <b>Бот снова в строю!</b>\n\n"
+    "Технические работы успешно завершены, все функции восстановлены и работают в штатном режиме.\n\n"
+    "Нажмите /start, чтобы открыть главное меню ✨"
+)
+
 
 async def broadcast_shutdown():
     """Рассылает уведомление о техническом обслуживании всем пользователям перед выключением."""
     user_ids = get_all_user_ids()
     if not user_ids:
+        set_maintenance_status(True)
         return
 
     logging.info(f"Рассылка уведомления об отключении {len(user_ids)} пользователям...")
@@ -43,6 +55,31 @@ async def broadcast_shutdown():
         except Exception:
             pass  # Игнорируем пользователей, заблокировавших бота
     logging.info(f"Уведомление отправлено {sent} из {len(user_ids)} пользователей.")
+    set_maintenance_status(True)
+
+
+async def broadcast_startup_resumed():
+    """Если бот был выключен на техническое обслуживание, уведомляет пользователей о возобновлении работы."""
+    if not is_maintenance_active():
+        return
+
+    user_ids = get_all_user_ids()
+    if not user_ids:
+        set_maintenance_status(False)
+        return
+
+    logging.info(f"Рассылка уведомления о возобновлении работы {len(user_ids)} пользователям...")
+    sent = 0
+    for user_id in user_ids:
+        try:
+        
+            await bot.send_message(chat_id=user_id, text=RESUME_TEXT, parse_mode="HTML")
+            sent += 1
+            await asyncio.sleep(0.05)  # Соблюдаем лимиты Telegram API
+        except Exception:
+            pass
+    logging.info(f"Уведомление о возобновлении отправлено {sent} из {len(user_ids)} пользователей.")
+    set_maintenance_status(False)
 
 
 async def on_shutdown():
@@ -66,6 +103,9 @@ async def main():
 
     # Запускаем планировщик для уведомлений об окончании пар
     scheduler_instance = start_scheduler(bot)
+
+    # Если бот до этого уходил на техперерыв — уведомляем пользователей о возобновлении
+    await broadcast_startup_resumed()
 
     await bot.set_my_commands([
         BotCommand(command="start", description="Перезапустить бота / Авторизация"),
