@@ -23,6 +23,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="bot.py" />
+    <Compile Include="src\services\scheduler.py" />
     <Compile Include="src\__init__.py" />
     <Compile Include="src\config.py" />
     <Compile Include="src\database\__init__.py" />
@@ -55,6 +56,7 @@
     <Folder Include="src\utils\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include=".env" />
     <Content Include=".env.example" />
     <Content Include=".gitignore" />
     <Content Include="CHANGELOG.md" />
