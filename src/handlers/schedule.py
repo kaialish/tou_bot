@@ -6,6 +6,7 @@ from aiogram.types import (
 )
 from aiogram.fsm.context import FSMContext
 
+from src.database import get_user_credentials
 from src.services import (
     get_schedule_html, parse_schedule_items,
     generate_schedule_image, generate_week_album
@@ -26,13 +27,19 @@ async def process_menu_schedule(callback: CallbackQuery, state: FSMContext):
         login = user_data.get("login")
         password = user_data.get("password")
         if not login or not password:
-            await callback.answer("Сессия истекла. Нажмите /start заново.", show_alert=True)
-            return
+            saved_data = get_user_credentials(callback.from_user.id)
+            if saved_data:
+                login, password = saved_data
+                await state.update_data(login=login, password=password)
+            else:
+                await callback.answer("Сессия истекла. Нажмите /start заново.", show_alert=True)
+                return
 
         await callback.answer("🔄 Загружаем данные...")
         success, html_or_err = await get_schedule_html(login, password)
         if success:
             cached_html = html_or_err
+
             await state.update_data(cached_html=cached_html)
         else:
             retry_kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -66,8 +73,11 @@ async def process_menu_schedule(callback: CallbackQuery, state: FSMContext):
     )
 
 
-@router.callback_query(F.data.startswith("sched_"))
+@router.callback_query(F.data.startswith("schedule_") | F.data.startswith("sched_"))
 async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
+    # Сразу отвечаем на callback_query, чтобы у пользователя моментально погас спиннер загрузки на кнопке
+    await callback.answer()
+
     day = callback.data.split("_")[1]
     user_data = await state.get_data()
     login     = user_data.get("login")
@@ -75,10 +85,13 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
     cached_html = user_data.get("cached_html")
 
     if not login or not password:
-        await callback.answer("Сессия истекла. Нажмите /start заново.", show_alert=True)
-        return
-
-    await callback.answer("🔄 Загружаем расписание...")
+        saved_data = get_user_credentials(callback.from_user.id)
+        if saved_data:
+            login, password = saved_data
+            await state.update_data(login=login, password=password)
+        else:
+            await callback.message.answer("Сессия истекла. Нажмите /start заново.")
+            return
 
     if not cached_html:
         success, html_or_err = await get_schedule_html(login, password)
@@ -96,14 +109,13 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
                 await callback.message.answer(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
             return
 
-
     items = parse_schedule_items(cached_html, day=day)
     day_titles = {"today": "Сегодня", "tomorrow": "Завтра", "week": "Всю неделю"}
     label = day_titles.get(day, '')
 
     # ────────────────────────────────────────────────────────────────────────────
     if day == "week":
-        # Недельное расписание → альбом (5 фото по дням)
+        # Недельное расписание → альбом по дням
         # ────────────────────────────────────────────────────────────────────────────
         # 1. Удаляем старое фото-сообщение или старый альбом
         await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
@@ -124,17 +136,26 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
             await state.update_data(week_album_ids=[], week_nav_id=nav_msg.message_id)
             return
 
-        # 3. Отправляем альбом (media group от 1 до 10 фото)
-        media_group = [
-            InputMediaPhoto(
-                media=BufferedInputFile(png, filename=f"day_{i+1}.png"),
+        # 3. Отправляем альбом (если день 1 — отправляем фото, иначе media group)
+        if len(day_images) == 1:
+            name, png = day_images[0]
+            album_msg = await callback.message.answer_photo(
+                photo=BufferedInputFile(png, filename="day_1.png"),
                 caption=f"📅 <b>{name}</b>",
                 parse_mode="HTML",
             )
-            for i, (name, png) in enumerate(day_images)
-        ]
-        album_msgs = await callback.message.answer_media_group(media=media_group)
-        album_ids  = [m.message_id for m in album_msgs]
+            album_ids = [album_msg.message_id]
+        else:
+            media_group = [
+                InputMediaPhoto(
+                    media=BufferedInputFile(png, filename=f"day_{i+1}.png"),
+                    caption=f"📅 <b>{name}</b>",
+                    parse_mode="HTML",
+                )
+                for i, (name, png) in enumerate(day_images)
+            ]
+            album_msgs = await callback.message.answer_media_group(media=media_group)
+            album_ids  = [m.message_id for m in album_msgs]
 
         # 4. Отправляем клавиатуру отдельным сообщением
         nav_msg = await callback.message.answer(
@@ -142,6 +163,7 @@ async def process_schedule_day(callback: CallbackQuery, state: FSMContext):
             parse_mode="HTML",
             reply_markup=get_schedule_keyboard()
         )
+
         # 5. Сохраняем ID для последующей чистки
         await state.update_data(week_album_ids=album_ids, week_nav_id=nav_msg.message_id)
 
