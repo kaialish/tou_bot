@@ -170,10 +170,10 @@ def get_days_declension(number: int) -> str:
     """Склонение слова 'день' (1 день, 2 дня, 5 дней)."""
     n = abs(number) % 100
     n1 = n % 10
-    if 10 < n < 20:
+    if 11 <= n <= 19:
         return "дней"
     if 1 < n1 < 5:
-        return "дней" if number in [63, 154] else "дня"  # с учетом формулировок портала
+        return "дня"
     if n1 == 1:
         return "день"
     return "дней"

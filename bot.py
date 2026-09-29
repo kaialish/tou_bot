@@ -6,7 +6,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import BotCommand
 
 from src.config import BOT_TOKEN
-from src.database import init_db
+from src.database import init_db, get_all_user_ids
 from src.handlers import main_router
 from src.services import start_scheduler
 
@@ -18,6 +18,45 @@ dp.include_router(main_router)
 
 # Глобальная переменная для хранения экземпляра планировщика
 scheduler_instance = None
+
+MAINTENANCE_TEXT = (
+    "🔧 <b>Бот временно недоступен</b>\n\n"
+    "Сейчас проводятся технические работы и обновление бота. "
+    "Он скоро вернётся в строй! 🚀\n\n"
+    "Спасибо за понимание 🙏"
+)
+
+
+async def broadcast_shutdown():
+    """Рассылает уведомление о техническом обслуживании всем пользователям перед выключением."""
+    user_ids = get_all_user_ids()
+    if not user_ids:
+        return
+
+    logging.info(f"Рассылка уведомления об отключении {len(user_ids)} пользователям...")
+    sent = 0
+    for user_id in user_ids:
+        try:
+            await bot.send_message(chat_id=user_id, text=MAINTENANCE_TEXT, parse_mode="HTML")
+            sent += 1
+            await asyncio.sleep(0.05)  # Соблюдаем лимиты Telegram API
+        except Exception:
+            pass  # Игнорируем пользователей, заблокировавших бота
+    logging.info(f"Уведомление отправлено {sent} из {len(user_ids)} пользователей.")
+
+
+async def on_shutdown():
+    """Выполняется при остановке бота: рассылка + остановка планировщика."""
+    global scheduler_instance
+
+    await broadcast_shutdown()
+
+    if scheduler_instance and scheduler_instance.running:
+        scheduler_instance.shutdown(wait=False)
+        logging.info("Планировщик остановлен.")
+
+    await bot.session.close()
+    logging.info("Бот остановлен.")
 
 
 async def main():
@@ -32,7 +71,12 @@ async def main():
         BotCommand(command="start", description="Перезапустить бота / Авторизация"),
         BotCommand(command="admin", description="Панель администратора"),
     ])
-    await dp.start_polling(bot)
+
+    try:
+        await dp.start_polling(bot)
+    finally:
+        # Вызываем shutdown при любом завершении (Ctrl+C, kill и т.д.)
+        await on_shutdown()
 
 
 if __name__ == "__main__":

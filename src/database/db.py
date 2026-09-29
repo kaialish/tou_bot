@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from datetime import datetime
 from pathlib import Path
 from cryptography.fernet import Fernet
 
@@ -23,7 +24,7 @@ cipher = Fernet(key)
 
 
 def init_db():
-    """Создает табицы пользователей и подписок, если их еще нет."""
+    """Создает таблицы пользователей, подписок и кэша расписания, если их еще нет."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
@@ -41,6 +42,16 @@ def init_db():
         CREATE TABLE IF NOT EXISTS notification_subscriptions (
             user_id INTEGER PRIMARY KEY,
             is_subscribed INTEGER DEFAULT 1,
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        )
+    """)
+
+    # Таблица сохранённого расписания на случай сбоев или падения портала ToU
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS cached_schedules (
+            user_id INTEGER PRIMARY KEY,
+            schedule_html TEXT NOT NULL,
+            cached_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(user_id)
         )
     """)
@@ -163,3 +174,34 @@ def get_subscribed_users() -> list[int]:
     rows = cursor.fetchall()
     conn.close()
     return [row[0] for row in rows]
+
+
+def save_cached_schedule(user_id: int, schedule_html: str, cached_at: str | None = None) -> None:
+    """Сохраняет HTML расписания и время обновления в БД."""
+    if not cached_at:
+        cached_at = datetime.now().strftime("%d.%m.%Y в %H:%M")
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO cached_schedules (user_id, schedule_html, cached_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            schedule_html=excluded.schedule_html,
+            cached_at=excluded.cached_at
+    """, (user_id, schedule_html, cached_at))
+    conn.commit()
+    conn.close()
+
+
+def get_cached_schedule(user_id: int) -> tuple[str, str] | None:
+    """Возвращает (schedule_html, cached_at) из БД или None, если кэш пуст."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT schedule_html, cached_at FROM cached_schedules WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+    return row[0], row[1]
