@@ -34,6 +34,7 @@ def get_schedule_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="Вся неделя", callback_data="schedule_week"),
             ],
             [
+                InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_schedule"),
                 InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main_menu"),
             ],
         ]

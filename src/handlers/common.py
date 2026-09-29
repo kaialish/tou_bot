@@ -1,7 +1,9 @@
+from datetime import datetime
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 
+from src.database import get_cached_schedule, save_cached_schedule
 from src.services import get_schedule_html, parse_key_dates, format_key_dates_message
 from src.keyboards import get_main_menu_keyboard, get_notifications_menu_keyboard
 from src.utils import cleanup_previous_album
@@ -26,17 +28,24 @@ async def process_menu_key_dates(callback: CallbackQuery, state: FSMContext):
         success, html_or_err = await get_schedule_html(login, password)
         if success:
             cached_html = html_or_err
-            await state.update_data(cached_html=cached_html)
+            now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+            save_cached_schedule(callback.from_user.id, cached_html, now_str)
+            await state.update_data(cached_html=cached_html, is_offline=False, cached_at=now_str)
         else:
-            retry_kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔄 Повторить попытку", callback_data="menu_key_dates")],
-                [InlineKeyboardButton(text="⬅️ Главное меню", callback_data="back_to_main_menu")]
-            ])
-            try:
-                await callback.message.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
-            except Exception:
-                await callback.message.answer(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
-            return
+            db_cached = get_cached_schedule(callback.from_user.id)
+            if db_cached:
+                cached_html, cached_at = db_cached
+                await state.update_data(cached_html=cached_html, is_offline=True, cached_at=cached_at)
+            else:
+                retry_kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔄 Повторить попытку", callback_data="menu_key_dates")],
+                    [InlineKeyboardButton(text="⬅️ Главное меню", callback_data="back_to_main_menu")]
+                ])
+                try:
+                    await callback.message.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
+                except Exception:
+                    await callback.message.answer(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
+                return
 
 
     await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
@@ -70,14 +79,21 @@ async def process_menu_grades(callback: CallbackQuery):
 
 @router.callback_query(F.data == "back_to_main_menu")
 async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
-    """Возврат в Главное меню."""
+    """Возврат в Главное меню. Удаляет все сообщения расписания перед показом меню."""
+    # Удаляем альбом, навигацию и одиночное фото (если есть)
     await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
-    
-    kb = get_main_menu_keyboard()
+
+    # Удаляем текущее сообщение (кнопка «Назад» может быть под текстовым или фото-сообщением)
     try:
-        await callback.message.edit_text("🏠 <b>Главное меню</b>\nВыберите нужный раздел:", parse_mode="HTML", reply_markup=kb)
+        await callback.message.delete()
     except Exception:
-        await callback.message.answer("🏠 <b>Главное меню</b>\nВыберите нужный раздел:", parse_mode="HTML", reply_markup=kb)
+        pass
+
+    await callback.message.answer(
+        "🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
+        parse_mode="HTML",
+        reply_markup=get_main_menu_keyboard()
+    )
 
 
 @router.callback_query(F.data == "subscribe_notifications")
