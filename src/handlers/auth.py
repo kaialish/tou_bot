@@ -1,3 +1,4 @@
+from datetime import datetime
 from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.types import (
@@ -5,7 +6,10 @@ from aiogram.types import (
 )
 from aiogram.fsm.context import FSMContext
 
-from src.database import get_user_credentials, save_user_credentials
+from src.database import (
+    get_user_credentials, save_user_credentials,
+    save_cached_schedule, get_cached_schedule
+)
 from src.services import get_schedule_html
 from src.keyboards import get_disclaimer_keyboard, get_main_menu_keyboard
 from src.states import AuthForm
@@ -61,8 +65,10 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
 
     success, html_or_err = await get_schedule_html(login, password)
     if success:
+        now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        save_cached_schedule(user_id, html_or_err, now_str)
         await state.set_state(AuthForm.authorized)
-        await state.update_data(cached_html=html_or_err)
+        await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
 
         await status_msg.delete()
         await callback.message.answer(
@@ -71,8 +77,26 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
             reply_markup=get_main_menu_keyboard()
         )
     else:
-        await status_msg.edit_text(f"❌ {html_or_err}")
-        await state.clear()
+        # Проверяем, есть ли сохранённое расписание в БД
+        db_cached = get_cached_schedule(user_id)
+        if db_cached:
+            cached_html, cached_at = db_cached
+            await state.set_state(AuthForm.authorized)
+            await state.update_data(cached_html=cached_html, is_offline=True, cached_at=cached_at)
+            await status_msg.delete()
+            await callback.message.answer(
+                f"⚠️ <b>Портал ToU временно не отвечает</b>\n\n"
+                f"Вы вошли в автономном режиме. Доступно сохранённое расписание (загружено: <b>{cached_at}</b>).\n\n"
+                f"Выберите нужный раздел:",
+                parse_mode="HTML",
+                reply_markup=get_main_menu_keyboard()
+            )
+        else:
+            retry_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="quick_login")],
+                [InlineKeyboardButton(text="✏️ Ввести другой логин", callback_data="manual_login")]
+            ])
+            await status_msg.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
 
 
 @router.message(AuthForm.waiting_for_login)
@@ -101,8 +125,10 @@ async def process_password(message: Message, state: FSMContext):
     success, html_or_err = await get_schedule_html(login, password)
 
     if success:
+        now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        save_cached_schedule(user_id, html_or_err, now_str)
         await state.set_state(AuthForm.authorized)
-        await state.update_data(cached_html=html_or_err)
+        await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
         save_user_credentials(user_id, login, password)
 
         await status_msg.delete()
@@ -112,5 +138,66 @@ async def process_password(message: Message, state: FSMContext):
             reply_markup=get_main_menu_keyboard()
         )
     else:
-        await status_msg.edit_text(f"❌ {html_or_err}")
-        await state.clear()
+        retry_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="retry_auth")],
+            [InlineKeyboardButton(text="✏️ Ввести заново", callback_data="manual_login")]
+        ])
+        await status_msg.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
+
+
+@router.callback_query(F.data == "retry_auth")
+async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
+    """Повторная попытка авторизации после сбоя портала ToU."""
+    user_data = await state.get_data()
+    login = user_data.get("login")
+    password = user_data.get("password")
+
+    if not login or not password:
+        saved_data = get_user_credentials(callback.from_user.id)
+        if saved_data:
+            login, password = saved_data
+            await state.update_data(login=login, password=password)
+        else:
+            await callback.answer("Данные не найдены. Введите логин заново.", show_alert=True)
+            await callback.message.edit_text("👤 Введите ваш логин от портала ToU:")
+            await state.set_state(AuthForm.waiting_for_login)
+            return
+
+    status_msg = await callback.message.edit_text("🔄 Подключаемся к порталу ToU...")
+
+    success, html_or_err = await get_schedule_html(login, password)
+    if success:
+        now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        save_cached_schedule(callback.from_user.id, html_or_err, now_str)
+        await state.set_state(AuthForm.authorized)
+        await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
+        save_user_credentials(callback.from_user.id, login, password)
+
+        await status_msg.delete()
+        await callback.message.answer(
+            f"✅ Авторизация успешна! Добро пожаловать, <b>{login}</b>.\nВыберите нужный раздел:",
+            parse_mode="HTML",
+            reply_markup=get_main_menu_keyboard()
+        )
+    else:
+        db_cached = get_cached_schedule(callback.from_user.id)
+        if db_cached:
+            cached_html, cached_at = db_cached
+            await state.set_state(AuthForm.authorized)
+            await state.update_data(cached_html=cached_html, is_offline=True, cached_at=cached_at)
+            await status_msg.delete()
+            await callback.message.answer(
+                f"⚠️ <b>Портал ToU временно не отвечает</b>\n\n"
+                f"Вы вошли в автономном режиме. Доступно сохранённое расписание (загружено: <b>{cached_at}</b>).\n\n"
+                f"Выберите нужный раздел:",
+                parse_mode="HTML",
+                reply_markup=get_main_menu_keyboard()
+            )
+        else:
+            retry_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="retry_auth")],
+                [InlineKeyboardButton(text="✏️ Ввести заново", callback_data="manual_login")]
+            ])
+            await status_msg.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
+
+
