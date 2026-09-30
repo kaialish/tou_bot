@@ -16,14 +16,16 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="📊 Успеваемость", callback_data="menu_grades"),
             ],
             [
-                InlineKeyboardButton(text="🔔 Уведомления", callback_data="menu_notifications"),
+                InlineKeyboardButton(text="⚙️ Настройки", callback_data="menu_settings"),
             ],
         ]
     )
 
 
-def get_schedule_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура для выбора дня расписания."""
+def get_schedule_keyboard(current_format: str = "photo") -> InlineKeyboardMarkup:
+    """Клавиатура для выбора дня расписания с тумблером формата (Фото/Текст)."""
+    toggle_text = "📝 Текстовый вид" if current_format == "photo" else "🖼️ Карточки (фото)"
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -35,7 +37,30 @@ def get_schedule_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_schedule"),
+                InlineKeyboardButton(text=toggle_text, callback_data="toggle_schedule_format"),
+            ],
+            [
                 InlineKeyboardButton(text="⬅️ Назад в меню", callback_data="back_to_main_menu"),
+            ],
+        ]
+    )
+
+
+def get_settings_keyboard(schedule_format: str = "photo", is_subscribed: bool = True) -> InlineKeyboardMarkup:
+    """Клавиатура меню настроек (формат расписания и подписка)."""
+    format_label = "🖼️ Картинка (PNG)" if schedule_format == "photo" else "📝 Текст (быстро)"
+    notify_label = "🔔 Включены" if is_subscribed else "🔕 Отключены"
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=f"Вид расписания: {format_label}", callback_data="settings_toggle_format"),
+            ],
+            [
+                InlineKeyboardButton(text=f"Уведомления о парах: {notify_label}", callback_data="settings_toggle_notifications"),
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_to_main_menu"),
             ],
         ]
     )
