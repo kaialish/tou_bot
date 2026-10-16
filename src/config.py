@@ -4,8 +4,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Принудительная установка часового пояса Казахстана (UTC+5)
-# На серверах Linux (Railway, Docker) это гарантирует точное время во всех модулях
-os.environ.setdefault("TZ", "Asia/Almaty")
+# Очищаем от случайных переносов строк (\n, \r), которые могут попасть при вводе в Railway
+raw_tz = os.getenv("TZ", "Asia/Almaty").strip()
+if not raw_tz or "\n" in raw_tz or "\r" in raw_tz:
+    raw_tz = "Asia/Almaty"
+os.environ["TZ"] = raw_tz
 if hasattr(time, "tzset"):
     time.tzset()
 
