@@ -81,6 +81,20 @@ def get_admin_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def get_academic_status_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура для раздела 'Академический статус'."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_academic_status"),
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_to_main_menu"),
+            ],
+        ]
+    )
+
+
 def get_notifications_menu_keyboard() -> InlineKeyboardMarkup:
     """Меню управления уведомлениями об окончании пар."""
     return InlineKeyboardMarkup(
