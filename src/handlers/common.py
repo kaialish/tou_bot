@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 from aiogram import Router, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 
@@ -132,10 +133,33 @@ async def _load_and_render_academic_status(callback: CallbackQuery, state: FSMCo
             text = html_or_err
 
     kb = get_academic_status_keyboard()
-    try:
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-    except Exception:
+
+    if is_refresh:
+        # При нажатии "Обновить" удаляем старое сообщение и отправляем свежее
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
         await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
+    else:
+        # При первом входе из меню пробуем изменить текст на месте
+        try:
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e).lower():
+                pass
+            else:
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
+                await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
+        except Exception:
+            try:
+                await callback.message.delete()
+            except Exception:
+                pass
+            await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
 @router.callback_query(F.data == "menu_academic_status")
