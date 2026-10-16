@@ -210,3 +210,87 @@ def format_key_dates_message(dates: list[dict] = None) -> str:
         lines.append(f"{marker} <b>{title}</b>\n  <code>{period_text}</code>\n  <i>{status}</i>\n")
 
     return "\n".join(lines)
+
+
+_NUM_EMOJIS = {
+    1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣",
+    6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣", 10: "🔟"
+}
+
+
+def format_schedule_text(items: list[dict], title: str, day_mode: str = "today") -> str:
+    """
+    Форматирует расписание в красивый, компактный и читаемый текст для Telegram.
+    Работает мгновенно без нагрузки на процессор и рендеринга картинок.
+    """
+    if not items:
+        return f"📅 <b>{title}</b>\n\n🎉 <i>Занятий нет! Можно отдыхать.</i>"
+
+    if day_mode == "week":
+        days_order = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"]
+        grouped: dict[str, list[dict]] = {d: [] for d in days_order}
+        for it in items:
+            day_name = it.get("day", "").strip()
+            if day_name in grouped:
+                grouped[day_name].append(it)
+            else:
+                grouped.setdefault(day_name, []).append(it)
+
+        lines = [f"📅 <b>{title}</b>\n"]
+        has_any = False
+        for day_name, day_items in grouped.items():
+            if not day_items:
+                continue
+            has_any = True
+            lines.append(f"🗓️ <b>{day_name}</b>")
+            for idx, item in enumerate(day_items, 1):
+                num_icon = _NUM_EMOJIS.get(idx, f"[{idx}]")
+                t_type = f" | <i>{item['type']}</i>" if item.get('type') else ""
+                time_str = item.get('time', '')
+                subj = item.get('subject', 'Без названия')
+                room = item.get('room', '')
+                teacher = item.get('teacher', '')
+
+                details = []
+                if room:
+                    details.append(f"📍 Ауд. {room}")
+                if teacher:
+                    details.append(f"👤 {teacher}")
+                meta_str = f"   {' • '.join(details)}" if details else ""
+                meta_line = f"\n{meta_str}" if meta_str else ""
+
+                lines.append(f"{num_icon} <b>{time_str}</b>{t_type}\n   📚 <b>{subj}</b>{meta_line}")
+            lines.append("")
+
+        if not has_any:
+            return f"📅 <b>{title}</b>\n\n🎉 <i>На этой неделе занятий нет!</i>"
+
+        return "\n".join(lines).strip()
+
+    # Для одного дня (Сегодня / Завтра)
+    day_name = items[0].get("day") if items else ""
+    header = f"📅 <b>{title}</b>"
+    if day_name and day_name.lower() not in title.lower():
+        header += f" (<b>{day_name}</b>)"
+
+    lines = [header, ""]
+    for idx, item in enumerate(items, 1):
+        num_icon = _NUM_EMOJIS.get(idx, f"[{idx}]")
+        t_type = f" | <i>{item['type']}</i>" if item.get('type') else ""
+        time_str = item.get('time', '')
+        subj = item.get('subject', 'Без названия')
+        room = item.get('room', '')
+        teacher = item.get('teacher', '')
+
+        details = []
+        if room:
+            details.append(f"📍 Ауд. {room}")
+        if teacher:
+            details.append(f"👤 {teacher}")
+        meta_str = f"   {' • '.join(details)}" if details else ""
+        meta_line = f"\n{meta_str}" if meta_str else ""
+
+        lines.append(f"{num_icon} <b>{time_str}</b>{t_type}\n   📚 <b>{subj}</b>{meta_line}\n")
+
+    return "\n".join(lines).strip()
+
