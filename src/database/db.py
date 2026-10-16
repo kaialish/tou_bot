@@ -54,6 +54,16 @@ async def init_db() -> None:
             )
         """)
 
+        # Таблица сохранённого академического статуса
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS cached_academic_status (
+                user_id INTEGER PRIMARY KEY,
+                status_json TEXT NOT NULL,
+                cached_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+        """)
+
         # Таблица системных настроек и состояний бота
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bot_settings (
@@ -199,6 +209,36 @@ async def get_cached_schedule(user_id: int) -> tuple[str, str] | None:
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute(
             "SELECT schedule_html, cached_at FROM cached_schedules WHERE user_id = ?",
+            (user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+
+    if not row:
+        return None
+    return row[0], row[1]
+
+
+async def save_cached_academic_status(user_id: int, status_json: str, cached_at: str | None = None) -> None:
+    """Сохраняет JSON академического статуса и время обновления в БД."""
+    if not cached_at:
+        cached_at = datetime.now().strftime("%d.%m.%Y в %H:%M")
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("""
+            INSERT INTO cached_academic_status (user_id, status_json, cached_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                status_json=excluded.status_json,
+                cached_at=excluded.cached_at
+        """, (user_id, status_json, cached_at))
+        await db.commit()
+
+
+async def get_cached_academic_status(user_id: int) -> tuple[str, str] | None:
+    """Возвращает (status_json, cached_at) из БД или None, если кэш пуст."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT status_json, cached_at FROM cached_academic_status WHERE user_id = ?",
             (user_id,)
         ) as cursor:
             row = await cursor.fetchone()
