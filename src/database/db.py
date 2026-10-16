@@ -3,22 +3,28 @@ import os
 from datetime import datetime
 from pathlib import Path
 from cryptography.fernet import Fernet
-
-# Определение путей к директории хранения данных
-DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+from src.config import DATA_DIR
 
 KEY_FILE = DATA_DIR / "secret.key"
 DB_NAME = str(DATA_DIR / "users_data.db")
 
-# Чтение или генерация ключа шифрования
-if not KEY_FILE.exists():
-    key = Fernet.generate_key()
-    with open(KEY_FILE, "wb") as f:
-        f.write(key)
-else:
+# Чтение или генерация ключа шифрования:
+# 1. Сначала проверяем переменную окружения SECRET_KEY (рекомендуется для Railway / хостинга)
+# 2. Если переменной нет, читаем из файла KEY_FILE на диске
+# 3. Если файла нет, генерируем новый и пробуем сохранить
+env_secret_key = os.getenv("SECRET_KEY", "").strip()
+if env_secret_key:
+    key = env_secret_key.encode()
+elif KEY_FILE.exists():
     with open(KEY_FILE, "rb") as f:
-        key = f.read()
+        key = f.read().strip()
+else:
+    key = Fernet.generate_key()
+    try:
+        with open(KEY_FILE, "wb") as f:
+            f.write(key)
+    except Exception:
+        pass
 
 cipher = Fernet(key)
 

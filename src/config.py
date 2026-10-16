@@ -1,6 +1,13 @@
 import os
+import time
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Принудительная установка часового пояса Казахстана (UTC+5)
+# На серверах Linux (Railway, Docker) это гарантирует точное время во всех модулях
+os.environ.setdefault("TZ", "Asia/Almaty")
+if hasattr(time, "tzset"):
+    time.tzset()
 
 # Определяем корень проекта и загружаем .env
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -14,6 +21,11 @@ ADMIN_IDS = [int(i.strip()) for i in raw_admin_ids.split(",") if i.strip().isdig
 
 if not BOT_TOKEN:
     raise ValueError("ОШИБКА: BOT_TOKEN не найден в файле .env!")
+
+# Путь к директории постоянных данных (поддерживает монтирование томов на серверах)
+env_data_dir = os.getenv("DATA_DIR", "").strip()
+DATA_DIR = Path(env_data_dir) if env_data_dir else PROJECT_ROOT / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # URL-адреса портала Торайгыров Университета
 LOGIN_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus"
