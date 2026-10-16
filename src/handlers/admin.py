@@ -26,7 +26,7 @@ async def process_admin_stats(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         return
 
-    count, logins = get_users_stats()
+    count, logins = await get_users_stats()
     logins_str = "\n".join([f"• <code>{login}</code>" for login in logins[:20]]) or "Нет зарегистрированных пользователей"
 
     text = (
@@ -51,7 +51,7 @@ async def process_broadcast_send(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS:
         return
 
-    user_ids = get_all_user_ids()
+    user_ids = await get_all_user_ids()
     await message.answer(f"🚀 Начинаем рассылку для {len(user_ids)} пользователей...")
 
     success_count = 0

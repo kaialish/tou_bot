@@ -21,7 +21,7 @@ router = Router()
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
-    saved_data = get_user_credentials(message.from_user.id)
+    saved_data = await get_user_credentials(message.from_user.id)
 
     if saved_data:
         saved_login, _ = saved_data
@@ -51,7 +51,7 @@ async def process_accept_disclaimer(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "quick_login")
 async def process_quick_login(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
-    saved_data = get_user_credentials(user_id)
+    saved_data = await get_user_credentials(user_id)
     if not saved_data:
         await callback.answer("Данные не найдены. Введите логин вручную.", show_alert=True)
         await callback.message.edit_text(DISCLAIMER_TEXT, parse_mode="HTML", reply_markup=get_disclaimer_keyboard())
@@ -63,10 +63,10 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
 
     status_msg = await callback.message.edit_text("🔄 Подключаемся к порталу ToU...")
 
-    success, html_or_err = await get_schedule_html(login, password)
+    success, html_or_err = await get_schedule_html(login, password, bot=callback.bot)
     if success:
         now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
-        save_cached_schedule(user_id, html_or_err, now_str)
+        await save_cached_schedule(user_id, html_or_err, now_str)
         await state.set_state(AuthForm.authorized)
         await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
 
@@ -78,7 +78,7 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
         )
     else:
         # Проверяем, есть ли сохранённое расписание в БД
-        db_cached = get_cached_schedule(user_id)
+        db_cached = await get_cached_schedule(user_id)
         if db_cached:
             cached_html, cached_at = db_cached
             await state.set_state(AuthForm.authorized)
@@ -122,14 +122,14 @@ async def process_password(message: Message, state: FSMContext):
     await state.update_data(password=password)
     status_msg = await message.answer("🔄 Подключаемся к порталу ToU...")
 
-    success, html_or_err = await get_schedule_html(login, password)
+    success, html_or_err = await get_schedule_html(login, password, bot=message.bot)
 
     if success:
         now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
-        save_cached_schedule(user_id, html_or_err, now_str)
+        await save_cached_schedule(user_id, html_or_err, now_str)
         await state.set_state(AuthForm.authorized)
         await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
-        save_user_credentials(user_id, login, password)
+        await save_user_credentials(user_id, login, password)
 
         await status_msg.delete()
         await message.answer(
@@ -153,7 +153,7 @@ async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
     password = user_data.get("password")
 
     if not login or not password:
-        saved_data = get_user_credentials(callback.from_user.id)
+        saved_data = await get_user_credentials(callback.from_user.id)
         if saved_data:
             login, password = saved_data
             await state.update_data(login=login, password=password)
@@ -165,13 +165,13 @@ async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
 
     status_msg = await callback.message.edit_text("🔄 Подключаемся к порталу ToU...")
 
-    success, html_or_err = await get_schedule_html(login, password)
+    success, html_or_err = await get_schedule_html(login, password, bot=callback.bot)
     if success:
         now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
-        save_cached_schedule(callback.from_user.id, html_or_err, now_str)
+        await save_cached_schedule(callback.from_user.id, html_or_err, now_str)
         await state.set_state(AuthForm.authorized)
         await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
-        save_user_credentials(callback.from_user.id, login, password)
+        await save_user_credentials(callback.from_user.id, login, password)
 
         await status_msg.delete()
         await callback.message.answer(
@@ -180,7 +180,7 @@ async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
             reply_markup=get_main_menu_keyboard()
         )
     else:
-        db_cached = get_cached_schedule(callback.from_user.id)
+        db_cached = await get_cached_schedule(callback.from_user.id)
         if db_cached:
             cached_html, cached_at = db_cached
             await state.set_state(AuthForm.authorized)
@@ -199,5 +199,3 @@ async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
                 [InlineKeyboardButton(text="✏️ Ввести заново", callback_data="manual_login")]
             ])
             await status_msg.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
-
-

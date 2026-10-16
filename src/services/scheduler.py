@@ -87,7 +87,7 @@ async def send_notification_task(bot: Bot) -> None:
         _sent_notifications[today_key].add(lesson["number"])
 
         # Получаем список подписанных пользователей
-        subscribed_users = get_subscribed_users()
+        subscribed_users = await get_subscribed_users()
         if not subscribed_users:
             return
 

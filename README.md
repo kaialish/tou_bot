@@ -30,7 +30,7 @@ tou_bot/
     │
     ├── database/                 # Слой базы данных
     │   ├── __init__.py
-    │   └── db.py                 # SQLite, шифрование Fernet, CRUD учётных записей и статистика
+    │   └── db.py                 # SQLite (aiosqlite), шифрование Fernet, CRUD учётных записей и настройки
     │
     ├── states/                   # FSM-состояния диалогов (Aiogram StatesGroup)
     │   ├── __init__.py
@@ -39,13 +39,15 @@ tou_bot/
     │
     ├── keyboards/                # Фабрики Inline-клавиатур
     │   ├── __init__.py
-    │   └── inline.py             # Главное меню, дисклеймер, расписание, админ-панель
+    │   └── inline.py             # Главное меню, настройки, расписание, админ-панель
     │
     ├── services/                 # Бизнес-логика, парсинг и генерация медиа
     │   ├── __init__.py
     │   ├── tou_client.py         # HTTP-клиент портала ToU (httpx: авторизация, cookies, mod=rasp)
-    │   ├── parser.py             # Парсер расписания BeautifulSoup (предметы, типы, ауд., препод.)
-    │   └── image_generator.py    # Рендеринг расписания в PNG-карточки и альбомы (Pillow)
+    │   ├── parser.py             # Парсер расписания BeautifulSoup + текстовый форматтер
+    │   ├── image_generator.py    # Рендеринг расписания в PNG-карточки и альбомы (Pillow)
+    │   ├── scheduler.py          # Асинхронный планировщик уведомлений об окончании пар
+    │   └── admin_alerts.py       # Мониторинг, алерты о сбоях/падениях портала и ошибки
     │
     ├── handlers/                 # Aiogram-обработчики (Routers)
     │   ├── __init__.py           # Сборка всех роутеров в единый main_router
