@@ -12,13 +12,20 @@ FONT_DIR = os.path.join(
     "assets", "fonts", "gros-ventre"
 )
 
-# Системные шрифты Windows, поддерживающие казахский алфавит (фолбэк)
+# Системные шрифты (Windows и Linux/Docker), поддерживающие казахский алфавит (фолбэк)
 _KAZ_FALLBACK_PATHS = [
+    # Windows
     r"C:\Windows\Fonts\seguisb.ttf",    # Segoe UI Semibold — лучший вариант
     r"C:\Windows\Fonts\segoeuib.ttf",   # Segoe UI Bold
     r"C:\Windows\Fonts\segoeui.ttf",    # Segoe UI Regular
     r"C:\Windows\Fonts\arialbd.ttf",    # Arial Bold
     r"C:\Windows\Fonts\arial.ttf",      # Arial
+    # Linux (Railway / Docker / Ubuntu)
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans.ttf",
 ]
 
 # Казахские буквы, которых нет в стандартном кириллическом блоке

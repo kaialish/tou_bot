@@ -1,22 +1,36 @@
 from datetime import datetime
+import json
 from aiogram import Router, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 
 from src.database import (
+    get_user_credentials,
     get_cached_schedule,
     save_cached_schedule,
+    save_cached_academic_status,
+    get_cached_academic_status,
     subscribe_to_notifications,
     unsubscribe_from_notifications,
     is_user_subscribed,
     get_user_schedule_format,
     toggle_user_schedule_format,
 )
-from src.services import get_schedule_html, parse_key_dates, format_key_dates_message
+from src.services import (
+    get_schedule_html,
+    get_dashboard_html,
+    parse_key_dates,
+    format_key_dates_message,
+    format_schedule_text,
+    parse_academic_status,
+    format_academic_status_message,
+)
 from src.keyboards import (
     get_main_menu_keyboard,
     get_notifications_menu_keyboard,
     get_settings_keyboard,
+    get_academic_status_keyboard,
 )
 from src.utils import cleanup_previous_album
 
@@ -76,10 +90,88 @@ async def process_menu_key_dates(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer(text, parse_mode="HTML", reply_markup=back_kb)
 
 
+async def _load_and_render_academic_status(callback: CallbackQuery, state: FSMContext, is_refresh: bool = False):
+    """Общий обработчик для загрузки и отображения академического статуса."""
+    await callback.answer("🔄 Загружаем академический статус...")
+    await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
+
+    user_data = await state.get_data()
+    login = user_data.get("login")
+    password = user_data.get("password")
+
+    if not login or not password:
+        creds = await get_user_credentials(callback.from_user.id)
+        if creds:
+            login, password = creds
+            await state.update_data(login=login, password=password)
+        else:
+            await callback.answer("Сессия истекла. Нажмите /start заново.", show_alert=True)
+            return
+
+    # Запрашиваем страницу дашборда с портала
+    success, html_or_err = await get_dashboard_html(login, password, bot=callback.bot)
+
+    if success:
+        status_data = parse_academic_status(html_or_err)
+        now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        await save_cached_academic_status(callback.from_user.id, json.dumps(status_data, ensure_ascii=False), now_str)
+        text = format_academic_status_message(status_data, updated_at=now_str)
+        if is_refresh:
+            await callback.answer("✅ Данные обновлены!", show_alert=False)
+    else:
+        # Проверяем кэш из БД
+        cached = await get_cached_academic_status(callback.from_user.id)
+        if cached:
+            status_json, cached_at = cached
+            try:
+                status_data = json.loads(status_json)
+                text = format_academic_status_message(status_data, updated_at=cached_at)
+                text += "\n\n⚠️ <i>Отображены сохранённые данные (портал временно недоступен).</i>"
+            except Exception:
+                text = f"{html_or_err}\n\n<i>Кэш академического статуса повреждён. Попробуйте позже.</i>"
+        else:
+            text = html_or_err
+
+    kb = get_academic_status_keyboard()
+
+    if is_refresh:
+        # При нажатии "Обновить" удаляем старое сообщение и отправляем свежее
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
+    else:
+        # При первом входе из меню пробуем изменить текст на месте
+        try:
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e).lower():
+                pass
+            else:
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
+                await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
+        except Exception:
+            try:
+                await callback.message.delete()
+            except Exception:
+                pass
+            await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
 @router.callback_query(F.data == "menu_academic_status")
-async def process_menu_academic_status(callback: CallbackQuery):
+async def process_menu_academic_status(callback: CallbackQuery, state: FSMContext):
     """Раздел: Академический статус."""
-    await callback.answer("📌 Раздел 'Академический статус' находится в разработке!", show_alert=True)
+    await _load_and_render_academic_status(callback, state, is_refresh=False)
+
+
+@router.callback_query(F.data == "refresh_academic_status")
+async def process_refresh_academic_status(callback: CallbackQuery, state: FSMContext):
+    """Обновление раздела Академический статус."""
+    await _load_and_render_academic_status(callback, state, is_refresh=True)
 
 
 @router.callback_query(F.data == "menu_grades")

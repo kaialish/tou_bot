@@ -2,6 +2,7 @@
 Планировщик для отправки автоматических уведомлений об окончании пар.
 Проверяет текущее время каждые 5 секунд и отправляет уведомления подписанным пользователям.
 """
+import zoneinfo
 from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -132,7 +133,12 @@ def start_scheduler(bot: Bot) -> AsyncIOScheduler:
     Returns:
         AsyncIOScheduler: Объект планировщика (для возможности остановки)
     """
-    scheduler = AsyncIOScheduler()
+    try:
+        kz_tz = zoneinfo.ZoneInfo("Asia/Almaty")
+    except Exception:
+        kz_tz = None
+
+    scheduler = AsyncIOScheduler(timezone=kz_tz) if kz_tz else AsyncIOScheduler()
 
     # Добавляем периодическую задачу: проверка каждые 5 секунд
     scheduler.add_job(

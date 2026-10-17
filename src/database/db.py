@@ -3,22 +3,28 @@ import os
 from datetime import datetime
 from pathlib import Path
 from cryptography.fernet import Fernet
-
-# Определение путей к директории хранения данных
-DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+from src.config import DATA_DIR
 
 KEY_FILE = DATA_DIR / "secret.key"
 DB_NAME = str(DATA_DIR / "users_data.db")
 
-# Чтение или генерация ключа шифрования
-if not KEY_FILE.exists():
-    key = Fernet.generate_key()
-    with open(KEY_FILE, "wb") as f:
-        f.write(key)
-else:
+# Чтение или генерация ключа шифрования:
+# 1. Сначала проверяем переменную окружения SECRET_KEY (рекомендуется для Railway / хостинга)
+# 2. Если переменной нет, читаем из файла KEY_FILE на диске
+# 3. Если файла нет, генерируем новый и пробуем сохранить
+env_secret_key = os.getenv("SECRET_KEY", "").strip()
+if env_secret_key:
+    key = env_secret_key.encode()
+elif KEY_FILE.exists():
     with open(KEY_FILE, "rb") as f:
-        key = f.read()
+        key = f.read().strip()
+else:
+    key = Fernet.generate_key()
+    try:
+        with open(KEY_FILE, "wb") as f:
+            f.write(key)
+    except Exception:
+        pass
 
 cipher = Fernet(key)
 
@@ -49,6 +55,16 @@ async def init_db() -> None:
             CREATE TABLE IF NOT EXISTS cached_schedules (
                 user_id INTEGER PRIMARY KEY,
                 schedule_html TEXT NOT NULL,
+                cached_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+        """)
+
+        # Таблица сохранённого академического статуса
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS cached_academic_status (
+                user_id INTEGER PRIMARY KEY,
+                status_json TEXT NOT NULL,
                 cached_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
@@ -199,6 +215,36 @@ async def get_cached_schedule(user_id: int) -> tuple[str, str] | None:
     async with aiosqlite.connect(DB_NAME) as db:
         async with db.execute(
             "SELECT schedule_html, cached_at FROM cached_schedules WHERE user_id = ?",
+            (user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+
+    if not row:
+        return None
+    return row[0], row[1]
+
+
+async def save_cached_academic_status(user_id: int, status_json: str, cached_at: str | None = None) -> None:
+    """Сохраняет JSON академического статуса и время обновления в БД."""
+    if not cached_at:
+        cached_at = datetime.now().strftime("%d.%m.%Y в %H:%M")
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("""
+            INSERT INTO cached_academic_status (user_id, status_json, cached_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                status_json=excluded.status_json,
+                cached_at=excluded.cached_at
+        """, (user_id, status_json, cached_at))
+        await db.commit()
+
+
+async def get_cached_academic_status(user_id: int) -> tuple[str, str] | None:
+    """Возвращает (status_json, cached_at) из БД или None, если кэш пуст."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute(
+            "SELECT status_json, cached_at FROM cached_academic_status WHERE user_id = ?",
             (user_id,)
         ) as cursor:
             row = await cursor.fetchone()
