@@ -6,6 +6,7 @@ from .inline import (
     get_admin_keyboard,
     get_notifications_menu_keyboard,
     get_academic_status_keyboard,
+    get_grades_keyboard,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "get_admin_keyboard",
     "get_notifications_menu_keyboard",
     "get_academic_status_keyboard",
+    "get_grades_keyboard",
 ]

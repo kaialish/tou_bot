@@ -14,6 +14,7 @@ from src.services import get_schedule_html
 from src.keyboards import get_disclaimer_keyboard, get_main_menu_keyboard
 from src.states import AuthForm
 from src.utils import DISCLAIMER_TEXT
+from src.config import ADMIN_IDS
 
 router = Router()
 
@@ -71,11 +72,12 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
         await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
 
         await status_msg.delete()
-        await callback.message.answer(
+        msg = await callback.message.answer(
             f"✅ Добро пожаловать, <b>{login}</b>!\nВыберите нужный раздел из меню ниже:",
             parse_mode="HTML",
-            reply_markup=get_main_menu_keyboard()
+            reply_markup=get_main_menu_keyboard(is_admin=(user_id in ADMIN_IDS))
         )
+        await state.update_data(main_menu_msg_id=msg.message_id)
     else:
         # Проверяем, есть ли сохранённое расписание в БД
         db_cached = await get_cached_schedule(user_id)
@@ -84,13 +86,14 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
             await state.set_state(AuthForm.authorized)
             await state.update_data(cached_html=cached_html, is_offline=True, cached_at=cached_at)
             await status_msg.delete()
-            await callback.message.answer(
+            msg = await callback.message.answer(
                 f"⚠️ <b>Портал ToU временно не отвечает</b>\n\n"
                 f"Вы вошли в автономном режиме. Доступно сохранённое расписание (загружено: <b>{cached_at}</b>).\n\n"
                 f"Выберите нужный раздел:",
                 parse_mode="HTML",
-                reply_markup=get_main_menu_keyboard()
+                reply_markup=get_main_menu_keyboard(is_admin=(user_id in ADMIN_IDS))
             )
+            await state.update_data(main_menu_msg_id=msg.message_id)
         else:
             retry_kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="quick_login")],
@@ -132,11 +135,12 @@ async def process_password(message: Message, state: FSMContext):
         await save_user_credentials(user_id, login, password)
 
         await status_msg.delete()
-        await message.answer(
+        msg = await message.answer(
             f"✅ Авторизация успешна! Добро пожаловать, <b>{login}</b>.\nВыберите нужный раздел:",
             parse_mode="HTML",
-            reply_markup=get_main_menu_keyboard()
+            reply_markup=get_main_menu_keyboard(is_admin=(user_id in ADMIN_IDS))
         )
+        await state.update_data(main_menu_msg_id=msg.message_id)
     else:
         retry_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="retry_auth")],
@@ -174,11 +178,12 @@ async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
         await save_user_credentials(callback.from_user.id, login, password)
 
         await status_msg.delete()
-        await callback.message.answer(
+        msg = await callback.message.answer(
             f"✅ Авторизация успешна! Добро пожаловать, <b>{login}</b>.\nВыберите нужный раздел:",
             parse_mode="HTML",
-            reply_markup=get_main_menu_keyboard()
+            reply_markup=get_main_menu_keyboard(is_admin=(callback.from_user.id in ADMIN_IDS))
         )
+        await state.update_data(main_menu_msg_id=msg.message_id)
     else:
         db_cached = await get_cached_schedule(callback.from_user.id)
         if db_cached:
@@ -186,13 +191,14 @@ async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
             await state.set_state(AuthForm.authorized)
             await state.update_data(cached_html=cached_html, is_offline=True, cached_at=cached_at)
             await status_msg.delete()
-            await callback.message.answer(
+            msg = await callback.message.answer(
                 f"⚠️ <b>Портал ToU временно не отвечает</b>\n\n"
                 f"Вы вошли в автономном режиме. Доступно сохранённое расписание (загружено: <b>{cached_at}</b>).\n\n"
                 f"Выберите нужный раздел:",
                 parse_mode="HTML",
-                reply_markup=get_main_menu_keyboard()
+                reply_markup=get_main_menu_keyboard(is_admin=(callback.from_user.id in ADMIN_IDS))
             )
+            await state.update_data(main_menu_msg_id=msg.message_id)
         else:
             retry_kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="retry_auth")],

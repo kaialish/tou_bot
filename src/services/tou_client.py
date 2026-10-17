@@ -1,6 +1,6 @@
 import httpx
 from aiogram import Bot
-from src.config import get_headers, LOGIN_URL, SCHEDULE_URL, DASHBOARD_URL
+from src.config import get_headers, LOGIN_URL, SCHEDULE_URL, DASHBOARD_URL, ZHURNAL_URL
 from src.services.admin_alerts import notify_portal_incident
 
 PORTAL_DOWN_MESSAGE = (
@@ -94,6 +94,54 @@ async def get_dashboard_html(login: str, password: str, bot: Bot | None = None) 
 
             # Проверяем успешность входа
             if "Выход" in res.text or "Академический статус" in res.text or "модул" in res.text.lower() or "dashboard" in res.text.lower():
+                if bot:
+                    await notify_portal_incident(bot, is_down=False)
+                return True, res.text
+            else:
+                return False, "❌ Не удалось войти в систему. Проверьте правильность логина и пароля."
+
+    except (httpx.TimeoutException, httpx.ConnectTimeout, httpx.ReadTimeout) as e:
+        if bot:
+            await notify_portal_incident(bot, is_down=True, reason=f"Таймаут подключения: {type(e).__name__}")
+        return False, PORTAL_DOWN_MESSAGE
+    except (httpx.ConnectError, httpx.NetworkError) as e:
+        if bot:
+            await notify_portal_incident(bot, is_down=True, reason=f"Сетевая ошибка: {type(e).__name__}")
+        return False, PORTAL_DOWN_MESSAGE
+    except Exception as e:
+        return False, f"⚠️ Ошибка при обращении к сайту ToU:\n<code>{e}</code>\n\nВозможно, портал временно недоступен."
+
+
+async def get_zhurnal_html(login: str, password: str, bot: Bot | None = None) -> tuple[bool, str]:
+    """
+    Авторизуется на портале ToU и возвращает HTML страницы журнала успеваемости (mod=zhurnal).
+    Возвращает (True, html) при успехе или (False, сообщение_об_ошибке).
+    """
+    headers = get_headers("random")
+    payload = {"role": "student", "user": login, "password": password}
+    timeout = httpx.Timeout(8.0, connect=5.0)
+
+    try:
+        async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=timeout) as client:
+            login_res = await client.post(LOGIN_URL, data=payload)
+
+            if login_res.status_code >= 500:
+                if bot:
+                    await notify_portal_incident(bot, is_down=True, reason=f"HTTP {login_res.status_code} на авторизации")
+                return False, PORTAL_DOWN_MESSAGE
+
+            if login_res.status_code != 200:
+                return False, f"⚠️ Сервер ToU ответил с кодом: {login_res.status_code}. Возможно, на сайте ведутся технические работы."
+
+            res = await client.get(ZHURNAL_URL)
+
+            if res.status_code >= 500:
+                if bot:
+                    await notify_portal_incident(bot, is_down=True, reason=f"HTTP {res.status_code} при загрузке журнала")
+                return False, PORTAL_DOWN_MESSAGE
+
+            # Проверяем успешность входа и наличие журнала
+            if "Выход" in res.text or "student-zhurnal" in res.text or "Успеваемость за текущий семестр" in res.text:
                 if bot:
                     await notify_portal_incident(bot, is_down=False)
                 return True, res.text

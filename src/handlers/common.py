@@ -11,6 +11,8 @@ from src.database import (
     save_cached_schedule,
     save_cached_academic_status,
     get_cached_academic_status,
+    save_cached_zhurnal,
+    get_cached_zhurnal,
     subscribe_to_notifications,
     unsubscribe_from_notifications,
     is_user_subscribed,
@@ -20,19 +22,25 @@ from src.database import (
 from src.services import (
     get_schedule_html,
     get_dashboard_html,
+    get_zhurnal_html,
     parse_key_dates,
     format_key_dates_message,
     format_schedule_text,
     parse_academic_status,
     format_academic_status_message,
+    parse_zhurnal,
+    format_zhurnal_brief,
+    format_zhurnal_full_chunks,
 )
 from src.keyboards import (
     get_main_menu_keyboard,
     get_notifications_menu_keyboard,
     get_settings_keyboard,
     get_academic_status_keyboard,
+    get_grades_keyboard,
 )
 from src.utils import cleanup_previous_album
+from src.config import ADMIN_IDS
 
 router = Router()
 
@@ -174,27 +182,211 @@ async def process_refresh_academic_status(callback: CallbackQuery, state: FSMCon
     await _load_and_render_academic_status(callback, state, is_refresh=True)
 
 
+async def _cleanup_grades_messages(bot, chat_id: int, state: FSMContext) -> None:
+    """Удаляет предыдущие сообщения полного журнала при переключении."""
+    user_data = await state.get_data()
+    msg_ids = user_data.get("grades_msg_ids", [])
+    for mid in msg_ids:
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=mid)
+        except Exception:
+            pass
+    await state.update_data(grades_msg_ids=[])
+
+
+async def _load_and_render_grades(callback: CallbackQuery, state: FSMContext, is_refresh: bool = False, view: str = "brief") -> None:
+    """Загружает данные журнала успеваемости и отображает их пользователю."""
+    user_data = await state.get_data()
+    login = user_data.get("login")
+    password = user_data.get("password")
+
+    # Если в стейте нет логина/пароля, достаем из БД
+    if not login or not password:
+        creds = await get_user_credentials(callback.from_user.id)
+        if not creds:
+            await callback.answer("⚠️ Вы не авторизованы. Отправьте /start", show_alert=True)
+            return
+        login, password = creds
+        await state.update_data(login=login, password=password)
+
+    courses = None
+    cached_at = ""
+
+    # Если это не переключение вида при уже загруженном журнале — проверяем/запрашиваем
+    cached_courses_json = user_data.get("cached_zhurnal_json")
+    cached_courses_time = user_data.get("cached_zhurnal_time")
+
+    if cached_courses_json and not is_refresh:
+        try:
+            courses = json.loads(cached_courses_json)
+            cached_at = cached_courses_time or ""
+        except Exception:
+            courses = None
+
+    if courses is None or is_refresh:
+        success, html_or_err = await get_zhurnal_html(login, password, bot=callback.bot)
+
+        if success:
+            courses = parse_zhurnal(html_or_err)
+            now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+            cached_at = now_str
+            courses_json = json.dumps(courses, ensure_ascii=False)
+            await state.update_data(cached_zhurnal_json=courses_json, cached_zhurnal_time=now_str)
+            await save_cached_zhurnal(callback.from_user.id, courses_json, now_str)
+            if is_refresh:
+                await callback.answer("✅ Журнал обновлен!", show_alert=False)
+        else:
+            # Пробуем достать кэш из БД
+            db_cached = await get_cached_zhurnal(callback.from_user.id)
+            if db_cached:
+                try:
+                    courses = json.loads(db_cached[0])
+                    cached_at = f"{db_cached[1]} (кэш)"
+                except Exception:
+                    courses = None
+
+            if not courses:
+                # Ошибка и нет кэша
+                try:
+                    await callback.message.edit_text(html_or_err, parse_mode="HTML", reply_markup=get_grades_keyboard("brief"))
+                except Exception:
+                    await callback.message.answer(html_or_err, parse_mode="HTML", reply_markup=get_grades_keyboard("brief"))
+                return
+
+    # Очищаем старые сообщения полного журнала если были
+    await _cleanup_grades_messages(callback.bot, callback.message.chat.id, state)
+
+    kb = get_grades_keyboard(view)
+
+    if view == "brief":
+        text = format_zhurnal_brief(courses, updated_at=cached_at)
+        try:
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e).lower():
+                pass
+            else:
+                try:
+                    await callback.message.delete()
+                except Exception:
+                    pass
+                sent = await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
+                await state.update_data(grades_msg_ids=[sent.message_id])
+        except Exception:
+            try:
+                await callback.message.delete()
+            except Exception:
+                pass
+            sent = await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
+            await state.update_data(grades_msg_ids=[sent.message_id])
+    else:
+        # view == "full"
+        chunks = format_zhurnal_full_chunks(courses, updated_at=cached_at)
+        # Удаляем предыдущее меню/сообщение
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+
+        sent_ids = []
+        for idx, chunk in enumerate(chunks):
+            # Кнопки прикрепляем только к последнему сообщению
+            reply_markup = kb if idx == len(chunks) - 1 else None
+            sent = await callback.message.answer(chunk, parse_mode="HTML", reply_markup=reply_markup)
+            sent_ids.append(sent.message_id)
+
+        await state.update_data(grades_msg_ids=sent_ids)
+
+
 @router.callback_query(F.data == "menu_grades")
-async def process_menu_grades(callback: CallbackQuery):
-    """Раздел: Успеваемость."""
-    await callback.answer("📊 Раздел 'Успеваемость' находится в разработке!", show_alert=True)
+async def process_menu_grades(callback: CallbackQuery, state: FSMContext):
+    """Раздел: Успеваемость (краткий вид по умолчанию)."""
+    await _load_and_render_grades(callback, state, is_refresh=False, view="brief")
+
+
+@router.callback_query(F.data == "refresh_grades")
+async def process_refresh_grades(callback: CallbackQuery, state: FSMContext):
+    """Обновление журнала успеваемости."""
+    await _load_and_render_grades(callback, state, is_refresh=True, view="brief")
+
+
+@router.callback_query(F.data == "grades_view_full")
+async def process_grades_view_full(callback: CallbackQuery, state: FSMContext):
+    """Переключение на полный вид журнала успеваемости."""
+    await _load_and_render_grades(callback, state, is_refresh=False, view="full")
+
+
+@router.callback_query(F.data == "grades_view_brief")
+async def process_grades_view_brief(callback: CallbackQuery, state: FSMContext):
+    """Переключение на краткий вид журнала успеваемости."""
+    await _load_and_render_grades(callback, state, is_refresh=False, view="brief")
 
 
 @router.callback_query(F.data == "back_to_main_menu")
 async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
-    """Возврат в Главное меню. Удаляет все сообщения расписания перед показом меню."""
-    await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
+    """Возврат в Главное меню. Удаляет текущее сообщение (панель админа, расписание, статус и т.д.) и отображает Главное меню."""
+    await callback.answer()
+
+    data = await state.get_data()
+    admin_panel_msg_id = data.get("admin_panel_msg_id")
+
+    await state.clear()
+
+    chat_id = callback.message.chat.id if callback.message else callback.from_user.id
 
     try:
-        await callback.message.delete()
+        await cleanup_previous_album(callback.bot, chat_id, state)
     except Exception:
         pass
 
-    await callback.message.answer(
-        "🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
+    try:
+        await _cleanup_grades_messages(callback.bot, chat_id, state)
+    except Exception:
+        pass
+
+    deleted = False
+    if callback.message:
+        try:
+            await callback.bot.delete_message(
+                chat_id=callback.message.chat.id,
+                message_id=callback.message.message_id
+            )
+            deleted = True
+        except Exception:
+            try:
+                await callback.message.delete()
+                deleted = True
+            except Exception:
+                pass
+
+    if admin_panel_msg_id and admin_panel_msg_id != (callback.message.message_id if callback.message else None):
+        try:
+            await callback.bot.delete_message(chat_id=chat_id, message_id=admin_panel_msg_id)
+        except Exception:
+            pass
+
+    is_admin = callback.from_user.id in ADMIN_IDS
+
+    if not deleted and callback.message:
+        # Если удалить сообщение не удалось, редактируем его в Главное меню
+        try:
+            await callback.message.edit_text(
+                "🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
+                parse_mode="HTML",
+                reply_markup=get_main_menu_keyboard(is_admin=is_admin)
+            )
+            await state.update_data(main_menu_msg_id=callback.message.message_id)
+            return
+        except Exception:
+            pass
+
+    main_msg = await callback.bot.send_message(
+        chat_id=chat_id,
+        text="🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
         parse_mode="HTML",
-        reply_markup=get_main_menu_keyboard()
+        reply_markup=get_main_menu_keyboard(is_admin=is_admin)
     )
+    await state.update_data(main_menu_msg_id=main_msg.message_id)
 
 
 # ────────────────────────────────────────────────────────────────────────────

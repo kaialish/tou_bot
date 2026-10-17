@@ -34,6 +34,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOGIN_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus"
 SCHEDULE_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus&mod=rasp"
 DASHBOARD_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus&mod=dashboard"
+ZHURNAL_URL = "https://tou.edu.kz/student_cabinet/index.php?lang=rus&mod=zhurnal"
 
 
 def get_headers(mode: str = "random") -> dict:
