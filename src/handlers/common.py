@@ -40,6 +40,7 @@ from src.keyboards import (
     get_grades_keyboard,
 )
 from src.utils import cleanup_previous_album
+from src.config import ADMIN_IDS
 
 router = Router()
 
@@ -323,20 +324,69 @@ async def process_grades_view_brief(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "back_to_main_menu")
 async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
-    """Возврат в Главное меню. Удаляет все сообщения расписания и журнала перед показом меню."""
-    await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
-    await _cleanup_grades_messages(callback.bot, callback.message.chat.id, state)
+    """Возврат в Главное меню. Удаляет текущее сообщение (панель админа, расписание, статус и т.д.) и отображает Главное меню."""
+    await callback.answer()
+
+    data = await state.get_data()
+    admin_panel_msg_id = data.get("admin_panel_msg_id")
+
+    await state.clear()
+
+    chat_id = callback.message.chat.id if callback.message else callback.from_user.id
 
     try:
-        await callback.message.delete()
+        await cleanup_previous_album(callback.bot, chat_id, state)
     except Exception:
         pass
 
-    await callback.message.answer(
-        "🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
+    try:
+        await _cleanup_grades_messages(callback.bot, chat_id, state)
+    except Exception:
+        pass
+
+    deleted = False
+    if callback.message:
+        try:
+            await callback.bot.delete_message(
+                chat_id=callback.message.chat.id,
+                message_id=callback.message.message_id
+            )
+            deleted = True
+        except Exception:
+            try:
+                await callback.message.delete()
+                deleted = True
+            except Exception:
+                pass
+
+    if admin_panel_msg_id and admin_panel_msg_id != (callback.message.message_id if callback.message else None):
+        try:
+            await callback.bot.delete_message(chat_id=chat_id, message_id=admin_panel_msg_id)
+        except Exception:
+            pass
+
+    is_admin = callback.from_user.id in ADMIN_IDS
+
+    if not deleted and callback.message:
+        # Если удалить сообщение не удалось, редактируем его в Главное меню
+        try:
+            await callback.message.edit_text(
+                "🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
+                parse_mode="HTML",
+                reply_markup=get_main_menu_keyboard(is_admin=is_admin)
+            )
+            await state.update_data(main_menu_msg_id=callback.message.message_id)
+            return
+        except Exception:
+            pass
+
+    main_msg = await callback.bot.send_message(
+        chat_id=chat_id,
+        text="🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
         parse_mode="HTML",
-        reply_markup=get_main_menu_keyboard()
+        reply_markup=get_main_menu_keyboard(is_admin=is_admin)
     )
+    await state.update_data(main_menu_msg_id=main_msg.message_id)
 
 
 # ────────────────────────────────────────────────────────────────────────────
