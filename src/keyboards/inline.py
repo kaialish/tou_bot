@@ -95,6 +95,29 @@ def get_academic_status_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def get_grades_keyboard(current_view: str = "brief") -> InlineKeyboardMarkup:
+    """
+    Клавиатура для раздела 'Успеваемость'.
+    current_view: 'brief' (краткий) или 'full' (полный).
+    """
+    if current_view == "brief":
+        toggle_button = InlineKeyboardButton(text="📖 Полный журнал", callback_data="grades_view_full")
+    else:
+        toggle_button = InlineKeyboardButton(text="📋 Краткий журнал", callback_data="grades_view_brief")
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                toggle_button,
+                InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_grades"),
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_to_main_menu"),
+            ],
+        ]
+    )
+
+
 def get_notifications_menu_keyboard() -> InlineKeyboardMarkup:
     """Меню управления уведомлениями об окончании пар."""
     return InlineKeyboardMarkup(
