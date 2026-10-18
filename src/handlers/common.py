@@ -38,8 +38,9 @@ from src.keyboards import (
     get_settings_keyboard,
     get_academic_status_keyboard,
     get_grades_keyboard,
+    get_privacy_policy_keyboard,
 )
-from src.utils import cleanup_previous_album
+from src.utils import cleanup_previous_album, PRIVACY_POLICY_TEXT
 from src.config import ADMIN_IDS
 
 router = Router()
@@ -52,24 +53,30 @@ async def process_menu_key_dates(callback: CallbackQuery, state: FSMContext):
     cached_html = user_data.get("cached_html")
 
     if not cached_html:
-        login = user_data.get("login")
-        password = user_data.get("password")
-        if not login or not password:
-            await callback.answer("Сессия истекла. Нажмите /start заново.", show_alert=True)
-            return
-
-        await callback.answer("🔄 Загружаем данные...")
-        success, html_or_err = await get_schedule_html(login, password, bot=callback.bot)
-        if success:
-            cached_html = html_or_err
-            now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
-            await save_cached_schedule(callback.from_user.id, cached_html, now_str)
-            await state.update_data(cached_html=cached_html, is_offline=False, cached_at=now_str)
+        # Сначала проверяем кэшированное расписание из БД
+        db_cached = await get_cached_schedule(callback.from_user.id)
+        if db_cached:
+            cached_html, cached_at = db_cached
+            await state.update_data(cached_html=cached_html, is_offline=True, cached_at=cached_at)
         else:
-            db_cached = await get_cached_schedule(callback.from_user.id)
-            if db_cached:
-                cached_html, cached_at = db_cached
-                await state.update_data(cached_html=cached_html, is_offline=True, cached_at=cached_at)
+            login = user_data.get("login")
+            password = user_data.get("password")
+            if not login or not password:
+                creds = await get_user_credentials(callback.from_user.id)
+                if creds:
+                    login, password = creds
+                    await state.update_data(login=login, password=password)
+                else:
+                    await callback.answer("Сессия истекла. Нажмите /start заново.", show_alert=True)
+                    return
+
+            await callback.answer("🔄 Загружаем данные...")
+            success, html_or_err = await get_schedule_html(login, password, bot=callback.bot)
+            if success:
+                cached_html = html_or_err
+                now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+                await save_cached_schedule(callback.from_user.id, cached_html, now_str)
+                await state.update_data(cached_html=cached_html, is_offline=False, cached_at=now_str)
             else:
                 retry_kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🔄 Повторить попытку", callback_data="menu_key_dates")],
@@ -397,17 +404,15 @@ async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
 async def process_menu_settings(callback: CallbackQuery):
     """Раздел персональных настроек пользователя."""
     user_id = callback.from_user.id
-    current_format = await get_user_schedule_format(user_id)
     is_sub = await is_user_subscribed(user_id)
 
-    format_desc = "🖼️ <b>Картинка (PNG)</b>" if current_format == "photo" else "📝 <b>Текст (быстрый режим)</b>"
     notify_desc = "✅ <b>Включены</b>" if is_sub else "❌ <b>Отключены</b>"
 
     text = (
         "⚙️ <b>Настройки бота</b>\n\n"
-        f"🎨 <b>Вид расписания:</b> {format_desc}\n"
-        "<i>Текстовый режим загружается мгновенно и экономит интернет, а картинка оформлена графическими карточками.</i>\n\n"
         f"🔔 <b>Уведомления об окончании пар:</b> {notify_desc}\n\n"
+        "<i>💡 При включении бот будет присылать уведомление за пару минут до окончания пары, "
+        "а также сообщать, сколько продлится следующая перемена (её длительность и время на отдых).</i>\n\n"
         "Нажмите на кнопку ниже, чтобы переключить параметр:"
     )
 
@@ -415,19 +420,19 @@ async def process_menu_settings(callback: CallbackQuery):
         await callback.message.edit_text(
             text,
             parse_mode="HTML",
-            reply_markup=get_settings_keyboard(current_format, is_sub)
+            reply_markup=get_settings_keyboard(is_subscribed=is_sub)
         )
     except Exception:
         await callback.message.answer(
             text,
             parse_mode="HTML",
-            reply_markup=get_settings_keyboard(current_format, is_sub)
+            reply_markup=get_settings_keyboard(is_subscribed=is_sub)
         )
 
 
 @router.callback_query(F.data == "settings_toggle_format")
 async def process_settings_toggle_format(callback: CallbackQuery):
-    """Переключение вида расписания из меню настроек."""
+    """Переключение вида расписания из меню настроек (для обратной совместимости)."""
     user_id = callback.from_user.id
     new_format = await toggle_user_schedule_format(user_id)
     is_sub = await is_user_subscribed(user_id)
@@ -435,14 +440,13 @@ async def process_settings_toggle_format(callback: CallbackQuery):
     mode_name = "📝 Текстовый вид" if new_format == "text" else "🖼️ Картинка (PNG)"
     await callback.answer(f"Вид изменен на: {mode_name}", show_alert=False)
 
-    format_desc = "🖼️ <b>Картинка (PNG)</b>" if new_format == "photo" else "📝 <b>Текст (быстрый режим)</b>"
     notify_desc = "✅ <b>Включены</b>" if is_sub else "❌ <b>Отключены</b>"
 
     text = (
         "⚙️ <b>Настройки бота</b>\n\n"
-        f"🎨 <b>Вид расписания:</b> {format_desc}\n"
-        "<i>Текстовый режим загружается мгновенно и экономит интернет, а картинка оформлена графическими карточками.</i>\n\n"
         f"🔔 <b>Уведомления об окончании пар:</b> {notify_desc}\n\n"
+        "<i>💡 При включении бот будет присылать уведомление за пару минут до окончания пары, "
+        "а также сообщать, сколько продлится следующая перемена (её длительность и время на отдых).</i>\n\n"
         "Нажмите на кнопку ниже, чтобы переключить параметр:"
     )
 
@@ -450,7 +454,7 @@ async def process_settings_toggle_format(callback: CallbackQuery):
         await callback.message.edit_text(
             text,
             parse_mode="HTML",
-            reply_markup=get_settings_keyboard(new_format, is_sub)
+            reply_markup=get_settings_keyboard(is_subscribed=is_sub)
         )
     except Exception:
         pass
@@ -471,15 +475,13 @@ async def process_settings_toggle_notifications(callback: CallbackQuery):
         new_sub = True
         await callback.answer("🔔 Уведомления включены", show_alert=False)
 
-    current_format = await get_user_schedule_format(user_id)
-    format_desc = "🖼️ <b>Картинка (PNG)</b>" if current_format == "photo" else "📝 <b>Текст (быстрый режим)</b>"
     notify_desc = "✅ <b>Включены</b>" if new_sub else "❌ <b>Отключены</b>"
 
     text = (
         "⚙️ <b>Настройки бота</b>\n\n"
-        f"🎨 <b>Вид расписания:</b> {format_desc}\n"
-        "<i>Текстовый режим загружается мгновенно и экономит интернет, а картинка оформлена графическими карточками.</i>\n\n"
         f"🔔 <b>Уведомления об окончании пар:</b> {notify_desc}\n\n"
+        "<i>💡 При включении бот будет присылать уведомление за пару минут до окончания пары, "
+        "а также сообщать, сколько продлится следующая перемена (её длительность и время на отдых).</i>\n\n"
         "Нажмите на кнопку ниже, чтобы переключить параметр:"
     )
 
@@ -487,10 +489,28 @@ async def process_settings_toggle_notifications(callback: CallbackQuery):
         await callback.message.edit_text(
             text,
             parse_mode="HTML",
-            reply_markup=get_settings_keyboard(current_format, new_sub)
+            reply_markup=get_settings_keyboard(is_subscribed=new_sub)
         )
     except Exception:
         pass
+
+
+@router.callback_query(F.data == "settings_privacy_policy")
+async def process_settings_privacy_policy(callback: CallbackQuery):
+    """Отображение политики конфиденциальности и защиты данных."""
+    await callback.answer()
+    try:
+        await callback.message.edit_text(
+            PRIVACY_POLICY_TEXT,
+            parse_mode="HTML",
+            reply_markup=get_privacy_policy_keyboard()
+        )
+    except Exception:
+        await callback.message.answer(
+            PRIVACY_POLICY_TEXT,
+            parse_mode="HTML",
+            reply_markup=get_privacy_policy_keyboard()
+        )
 
 
 # ────────────────────────────────────────────────────────────────────────────

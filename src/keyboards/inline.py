@@ -8,10 +8,10 @@ def get_main_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📅 Расписание", callback_data="menu_schedule"),
         ],
         [
-            InlineKeyboardButton(text="📆 Ключевые даты", callback_data="menu_key_dates"),
+            InlineKeyboardButton(text="📌 Академический статус", callback_data="menu_academic_status"),
         ],
         [
-            InlineKeyboardButton(text="📌 Академический статус", callback_data="menu_academic_status"),
+            InlineKeyboardButton(text="📆 Ключевые даты", callback_data="menu_key_dates"),
             InlineKeyboardButton(text="📊 Успеваемость", callback_data="menu_grades"),
         ],
         [
@@ -49,21 +49,31 @@ def get_schedule_keyboard(current_format: str = "photo") -> InlineKeyboardMarkup
     )
 
 
-def get_settings_keyboard(schedule_format: str = "photo", is_subscribed: bool = True) -> InlineKeyboardMarkup:
-    """Клавиатура меню настроек (формат расписания и подписка)."""
-    format_label = "🖼️ Картинка (PNG)" if schedule_format == "photo" else "📝 Текст (быстро)"
+def get_settings_keyboard(is_subscribed: bool = True, *args, **kwargs) -> InlineKeyboardMarkup:
+    """Клавиатура меню настроек (уведомления и конфиденциальность)."""
     notify_label = "🔔 Включены" if is_subscribed else "🔕 Отключены"
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text=f"Вид расписания: {format_label}", callback_data="settings_toggle_format"),
-            ],
-            [
                 InlineKeyboardButton(text=f"Уведомления о парах: {notify_label}", callback_data="settings_toggle_notifications"),
             ],
             [
+                InlineKeyboardButton(text="🛡️ Политика конфиденциальности", callback_data="settings_privacy_policy"),
+            ],
+            [
                 InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_to_main_menu"),
+            ],
+        ]
+    )
+
+
+def get_privacy_policy_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура для экрана политики конфиденциальности."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="⬅️ Назад в настройки", callback_data="menu_settings"),
             ],
         ]
     )
