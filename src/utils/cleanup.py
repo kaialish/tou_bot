@@ -15,6 +15,16 @@ async def cleanup_previous_album(bot: Bot, chat_id: int, state: FSMContext) -> N
     prev_nav_id: int | None = user_data.get("week_nav_id")
     schedule_photo_id: int | None = user_data.get("schedule_photo_id")
     schedule_text_id: int | None = user_data.get("schedule_text_id")
+    grades_msg_ids: list[int] = user_data.get("grades_msg_ids", [])
+
+    # Удаляем сообщения журнала успеваемости (если были)
+    if grades_msg_ids:
+        for mid in grades_msg_ids:
+            try:
+                await bot.delete_message(chat_id, mid)
+            except Exception:
+                pass
+        await state.update_data(grades_msg_ids=[])
 
     # Удаляем альбом недели
     if prev_album_ids:

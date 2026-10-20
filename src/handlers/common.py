@@ -41,6 +41,7 @@ from src.keyboards import (
     get_privacy_policy_keyboard,
 )
 from src.utils import cleanup_previous_album, PRIVACY_POLICY_TEXT
+from src.states import AuthForm
 from src.config import ADMIN_IDS
 
 router = Router()
@@ -269,9 +270,10 @@ async def _load_and_render_grades(callback: CallbackQuery, state: FSMContext, is
         text = format_zhurnal_brief(courses, updated_at=cached_at)
         try:
             await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+            await state.update_data(grades_msg_ids=[callback.message.message_id])
         except TelegramBadRequest as e:
             if "message is not modified" in str(e).lower():
-                pass
+                await state.update_data(grades_msg_ids=[callback.message.message_id])
             else:
                 try:
                     await callback.message.delete()
@@ -337,10 +339,9 @@ async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     admin_panel_msg_id = data.get("admin_panel_msg_id")
 
-    await state.clear()
-
     chat_id = callback.message.chat.id if callback.message else callback.from_user.id
 
+    # Сначала удаляем ВСЕ временные сообщения (альбом расписания, сообщения полного журнала) ДО очистки состояния
     try:
         await cleanup_previous_album(callback.bot, chat_id, state)
     except Exception:
@@ -372,6 +373,9 @@ async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
         except Exception:
             pass
 
+    await state.set_state(AuthForm.authorized)
+    await state.update_data(admin_panel_msg_id=None)
+
     is_admin = callback.from_user.id in ADMIN_IDS
 
     if not deleted and callback.message:
@@ -401,8 +405,18 @@ async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
 # ────────────────────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "menu_settings")
-async def process_menu_settings(callback: CallbackQuery):
+async def process_menu_settings(callback: CallbackQuery, state: FSMContext):
     """Раздел персональных настроек пользователя."""
+    chat_id = callback.message.chat.id if callback.message else callback.from_user.id
+    try:
+        await cleanup_previous_album(callback.bot, chat_id, state)
+    except Exception:
+        pass
+    try:
+        await _cleanup_grades_messages(callback.bot, chat_id, state)
+    except Exception:
+        pass
+
     user_id = callback.from_user.id
     is_sub = await is_user_subscribed(user_id)
 
