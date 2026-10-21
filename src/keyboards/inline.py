@@ -5,14 +5,17 @@ def get_main_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     """Главное меню бота."""
     keyboard = [
         [
-            InlineKeyboardButton(text="📅 Расписание", callback_data="menu_schedule"),
+            InlineKeyboardButton(text="🔎 Текущая пара", callback_data="widget_current_lesson"),
         ],
         [
-            InlineKeyboardButton(text="📌 Академический статус", callback_data="menu_academic_status"),
+            InlineKeyboardButton(text="📅 Расписание", callback_data="menu_schedule"),
         ],
         [
             InlineKeyboardButton(text="📆 Ключевые даты", callback_data="menu_key_dates"),
             InlineKeyboardButton(text="📊 Успеваемость", callback_data="menu_grades"),
+        ],
+        [
+            InlineKeyboardButton(text="📌 Академический статус", callback_data="menu_academic_status"),
         ],
         [
             InlineKeyboardButton(text="⚙️ Настройки", callback_data="menu_settings"),
@@ -23,6 +26,20 @@ def get_main_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="🛠️ Панель администратора", callback_data="admin_panel"),
         ])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_current_lesson_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура для экрана виджета 'Текущая пара'."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔄 Обновить", callback_data="widget_current_lesson"),
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_to_main_menu"),
+            ],
+        ]
+    )
 
 
 def get_schedule_keyboard(current_format: str = "photo") -> InlineKeyboardMarkup:

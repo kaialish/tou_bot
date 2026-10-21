@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from cryptography.fernet import Fernet
-from src.config import DATA_DIR
+from src.config import DATA_DIR, get_kz_now
 
 KEY_FILE = DATA_DIR / "secret.key"
 DB_NAME = str(DATA_DIR / "users_data.db")
@@ -207,7 +207,7 @@ async def get_subscribed_users() -> list[int]:
 async def save_cached_schedule(user_id: int, schedule_html: str, cached_at: str | None = None) -> None:
     """Сохраняет HTML расписания и время обновления в БД."""
     if not cached_at:
-        cached_at = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        cached_at = get_kz_now().strftime("%d.%m.%Y в %H:%M")
 
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("""
@@ -237,7 +237,7 @@ async def get_cached_schedule(user_id: int) -> tuple[str, str] | None:
 async def save_cached_academic_status(user_id: int, status_json: str, cached_at: str | None = None) -> None:
     """Сохраняет JSON академического статуса и время обновления в БД."""
     if not cached_at:
-        cached_at = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        cached_at = get_kz_now().strftime("%d.%m.%Y в %H:%M")
 
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("""
@@ -267,7 +267,7 @@ async def get_cached_academic_status(user_id: int) -> tuple[str, str] | None:
 async def save_cached_zhurnal(user_id: int, zhurnal_json: str, cached_at: str | None = None) -> None:
     """Сохраняет JSON журнала успеваемости и время обновления в БД."""
     if not cached_at:
-        cached_at = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        cached_at = get_kz_now().strftime("%d.%m.%Y в %H:%M")
 
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("""

@@ -1,4 +1,5 @@
 from datetime import datetime
+from src.config import get_kz_now
 from aiogram import Router, F
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import (
@@ -65,7 +66,7 @@ async def _ensure_cached_schedule(callback: CallbackQuery, state: FSMContext) ->
     success, html_or_err = await get_schedule_html(login, password, bot=callback.bot)
     if success:
         cached_html = html_or_err
-        now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")
         await save_cached_schedule(callback.from_user.id, cached_html, now_str)
         is_offline = False
         cached_at = now_str
@@ -347,7 +348,7 @@ async def process_refresh_schedule(callback: CallbackQuery, state: FSMContext):
     success, html_or_err = await get_schedule_html(login, password, bot=callback.bot)
 
     if success:
-        now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")
         await save_cached_schedule(callback.from_user.id, html_or_err, now_str)
         await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
 

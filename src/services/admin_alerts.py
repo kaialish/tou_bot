@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from aiogram import Bot
-from src.config import ADMIN_IDS
+from src.config import ADMIN_IDS, get_kz_now
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ async def notify_admins(bot: Bot, text: str) -> None:
 
 async def notify_admin_startup(bot: Bot, user_count: int) -> None:
     """Уведомление администраторам о запуске бота."""
-    now_str = datetime.now().strftime("%d.%m.%Y в %H:%M:%S")
+    now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M:%S")
     text = (
         "🟢 <b>ToU Bot успешно запущен!</b>\n\n"
         f"🕒 Время запуска: <code>{now_str}</code>\n"
@@ -36,7 +36,7 @@ async def notify_admin_startup(bot: Bot, user_count: int) -> None:
 
 async def notify_admin_shutdown(bot: Bot) -> None:
     """Уведомление администраторам об остановке бота."""
-    now_str = datetime.now().strftime("%d.%m.%Y в %H:%M:%S")
+    now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M:%S")
     text = (
         "🔴 <b>ToU Bot останавливается...</b>\n\n"
         f"🕒 Время остановки: <code>{now_str}</code>\n"
@@ -51,7 +51,7 @@ async def notify_portal_incident(bot: Bot, is_down: bool, reason: str = "") -> N
     Использует дедупликацию, чтобы не спамить при каждом запросе студента.
     """
     global _portal_down_reported
-    now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+    now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")
 
     if is_down and not _portal_down_reported:
         _portal_down_reported = True
@@ -75,7 +75,7 @@ async def notify_portal_incident(bot: Bot, is_down: bool, reason: str = "") -> N
 
 async def notify_admin_error(bot: Bot, error: Exception, context_info: str = "") -> None:
     """Отправляет администраторам уведомление о критической ошибке или сбое хендлера."""
-    now_str = datetime.now().strftime("%d.%m.%Y в %H:%M:%S")
+    now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M:%S")
     error_type = type(error).__name__
     error_msg = str(error)[:300]
 

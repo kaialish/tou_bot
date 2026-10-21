@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from src.config import LESSONS_SCHEDULE
+from src.config import LESSONS_SCHEDULE, get_kz_now
 from src.database import get_subscribed_users
 from aiogram import Bot
 
@@ -18,8 +18,8 @@ _sent_notifications: dict[str, set[int]] = {}
 
 
 def _get_today_key() -> str:
-    """Возвращает ключ в формате YYYY-MM-DD для текущего дня."""
-    return datetime.now().strftime("%Y-%m-%d")
+    """Возвращает ключ в формате YYYY-MM-DD для текущего дня по KZ."""
+    return get_kz_now().strftime("%Y-%m-%d")
 
 
 def _get_lesson_ending_in_5_minutes() -> dict | None:
@@ -27,7 +27,7 @@ def _get_lesson_ending_in_5_minutes() -> dict | None:
     Определяет, какая пара заканчивается в течение следующих 5 минут.
     Возвращает словарь пары или None если нет таких пар.
     """
-    now = datetime.now()
+    now = get_kz_now()
     for lesson in LESSONS_SCHEDULE:
         end_hour, end_minute = map(int, lesson["end"].split(":"))
         lesson_end = now.replace(
@@ -68,7 +68,7 @@ async def send_notification_task(bot: Bot) -> None:
     try:
         # Проверяем только в рабочие дни (пн-пт)
         # 0 = понедельник, 4 = пятница, 5-6 = выходные
-        if datetime.now().weekday() >= 5:
+        if get_kz_now().weekday() >= 5:
             return
 
         # Определяем пару которая заканчивается в течение 5 минут
