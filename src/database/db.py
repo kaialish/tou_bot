@@ -204,6 +204,19 @@ async def get_subscribed_users() -> list[int]:
     return [row[0] for row in rows]
 
 
+async def get_subscribed_users_with_schedules() -> list[tuple[int, str | None]]:
+    """Возвращает список (user_id, schedule_html) для всех подписанных пользователей."""
+    async with aiosqlite.connect(DB_NAME) as db:
+        async with db.execute("""
+            SELECT s.user_id, c.schedule_html
+            FROM notification_subscriptions s
+            LEFT JOIN cached_schedules c ON s.user_id = c.user_id
+            WHERE s.is_subscribed = 1
+        """) as cursor:
+            rows = await cursor.fetchall()
+    return [(row[0], row[1]) for row in rows]
+
+
 async def save_cached_schedule(user_id: int, schedule_html: str, cached_at: str | None = None) -> None:
     """Сохраняет HTML расписания и время обновления в БД."""
     if not cached_at:

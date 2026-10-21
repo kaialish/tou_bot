@@ -90,6 +90,9 @@ def get_privacy_policy_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
+                InlineKeyboardButton(text="🐙 Исходный код на GitHub", url="https://github.com/kaialish/tou_bot"),
+            ],
+            [
                 InlineKeyboardButton(text="⬅️ Назад в настройки", callback_data="menu_settings"),
             ],
         ]

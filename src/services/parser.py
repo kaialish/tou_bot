@@ -91,14 +91,17 @@ def _parse_schedule_table(html_content: str) -> list[dict]:
     return items
 
 
-def parse_schedule_items(html_content: str, day: str = "today") -> list[dict]:
+def parse_schedule_items(html_content: str, day: str = "today", target_date: date | datetime | None = None) -> list[dict]:
     all_items = _parse_schedule_table(html_content)
 
     if day == "week":
         return all_items
 
-    now = get_kz_now()
-    target_dt = now + timedelta(days=1) if day == "tomorrow" else now
+    if target_date is not None:
+        target_dt = target_date
+    else:
+        now = get_kz_now()
+        target_dt = now + timedelta(days=1) if day == "tomorrow" else now
     target_day_name = _IDX_TO_WEEKDAY.get(target_dt.weekday(), "")
 
     return [
