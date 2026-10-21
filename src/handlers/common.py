@@ -2,8 +2,9 @@ from datetime import datetime
 import json
 from src.config import get_kz_now
 from aiogram import Router, F
+from aiogram.filters import Command
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message
 from aiogram.fsm.context import FSMContext
 
 from src.database import (
@@ -42,12 +43,51 @@ from src.keyboards import (
     get_privacy_policy_keyboard,
     get_current_lesson_keyboard,
 )
-from src.utils import cleanup_previous_album, PRIVACY_POLICY_TEXT
+from src.utils import cleanup_previous_album, PRIVACY_POLICY_TEXT, clear_chat_history
 from src.utils.lesson_widget import get_current_lesson_status, format_current_lesson_message
 from src.states import AuthForm
 from src.config import ADMIN_IDS
 
 router = Router()
+
+
+@router.message(Command("clear", "clean"))
+async def cmd_clear(message: Message, state: FSMContext):
+    """
+    Команда /clear или /clean — быстрая очистка чата.
+    Удаляет историю сообщений (до 100 последних сообщений) и возвращает главное меню.
+    """
+    chat_id = message.chat.id
+    current_msg_id = message.message_id
+    bot = message.bot
+    user_id = message.from_user.id
+
+    # Определяем количество сообщений для очистки (по умолчанию 100, либо: /clear 50)
+    count = 100
+    args = message.text.split() if message.text else []
+    if len(args) > 1 and args[1].isdigit():
+        count = min(100, max(1, int(args[1])))
+
+    # Очищаем состояние FSM и сохранённые ID сообщений
+    await state.clear()
+
+    # Очищаем историю чата
+    await clear_chat_history(bot=bot, chat_id=chat_id, current_msg_id=current_msg_id, count=count)
+
+    # Отправляем главное меню
+    is_admin = user_id in ADMIN_IDS
+    creds = await get_user_credentials(user_id)
+    if creds:
+        await message.answer(
+            "🧹 <b>Чат очищен!</b>\n\nГлавное меню бота:",
+            parse_mode="HTML",
+            reply_markup=get_main_menu_keyboard(is_admin=is_admin)
+        )
+    else:
+        await message.answer(
+            "🧹 <b>Чат очищен!</b>\n\nДля авторизации нажмите /start",
+            parse_mode="HTML"
+        )
 
 
 @router.callback_query(F.data == "menu_key_dates")
