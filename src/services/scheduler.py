@@ -10,7 +10,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from aiogram import Bot
 
-from src.config import LESSONS_SCHEDULE
+from src.config import LESSONS_SCHEDULE, get_kz_now
 from src.database import (
     get_subscribed_users_with_schedules,
     get_user_credentials,
@@ -32,13 +32,11 @@ except Exception:
 
 def _get_now() -> datetime:
     """Возвращает текущее время с учетом часового пояса Казахстана (Asia/Almaty, UTC+5)."""
-    if _KZ_TZ:
-        return datetime.now(_KZ_TZ).replace(tzinfo=None)
-    return datetime.now()
+    return get_kz_now().replace(tzinfo=None)
 
 
 def _get_today_key() -> str:
-    """Возвращает ключ в формате YYYY-MM-DD для текущего дня."""
+    """Возвращает ключ в формате YYYY-MM-DD для текущего дня по KZ."""
     return _get_now().strftime("%Y-%m-%d")
 
 

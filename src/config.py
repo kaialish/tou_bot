@@ -3,8 +3,18 @@ import time
 from pathlib import Path
 from dotenv import load_dotenv
 
+from zoneinfo import ZoneInfo
+from datetime import datetime
+
 # Принудительная установка часового пояса Казахстана (UTC+5)
-# Очищаем от случайных переносов строк (\n, \r), которые могут попасть при вводе в Railway
+KZ_TIMEZONE = ZoneInfo("Asia/Almaty")
+
+
+def get_kz_now() -> datetime:
+    """Возвращает текущее время по часовому поясу Казахстана (Asia/Almaty)."""
+    return datetime.now(KZ_TIMEZONE)
+
+
 raw_tz = os.getenv("TZ", "Asia/Almaty").strip()
 if not raw_tz or "\n" in raw_tz or "\r" in raw_tz:
     raw_tz = "Asia/Almaty"

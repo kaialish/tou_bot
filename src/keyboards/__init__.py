@@ -8,6 +8,7 @@ from .inline import (
     get_academic_status_keyboard,
     get_grades_keyboard,
     get_privacy_policy_keyboard,
+    get_current_lesson_keyboard,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "get_academic_status_keyboard",
     "get_grades_keyboard",
     "get_privacy_policy_keyboard",
+    "get_current_lesson_keyboard",
 ]

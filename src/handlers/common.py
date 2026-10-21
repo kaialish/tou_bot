@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+from src.config import get_kz_now
 from aiogram import Router, F
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -39,8 +40,10 @@ from src.keyboards import (
     get_academic_status_keyboard,
     get_grades_keyboard,
     get_privacy_policy_keyboard,
+    get_current_lesson_keyboard,
 )
 from src.utils import cleanup_previous_album, PRIVACY_POLICY_TEXT
+from src.utils.lesson_widget import get_current_lesson_status, format_current_lesson_message
 from src.states import AuthForm
 from src.config import ADMIN_IDS
 
@@ -75,7 +78,7 @@ async def process_menu_key_dates(callback: CallbackQuery, state: FSMContext):
             success, html_or_err = await get_schedule_html(login, password, bot=callback.bot)
             if success:
                 cached_html = html_or_err
-                now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+                now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")
                 await save_cached_schedule(callback.from_user.id, cached_html, now_str)
                 await state.update_data(cached_html=cached_html, is_offline=False, cached_at=now_str)
             else:
@@ -129,7 +132,7 @@ async def _load_and_render_academic_status(callback: CallbackQuery, state: FSMCo
 
     if success:
         status_data = parse_academic_status(html_or_err)
-        now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")
         await save_cached_academic_status(callback.from_user.id, json.dumps(status_data, ensure_ascii=False), now_str)
         text = format_academic_status_message(status_data, updated_at=now_str)
         if is_refresh:
@@ -236,7 +239,7 @@ async def _load_and_render_grades(callback: CallbackQuery, state: FSMContext, is
 
         if success:
             courses = parse_zhurnal(html_or_err)
-            now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+            now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")
             cached_at = now_str
             courses_json = json.dumps(courses, ensure_ascii=False)
             await state.update_data(cached_zhurnal_json=courses_json, cached_zhurnal_time=now_str)
@@ -527,9 +530,31 @@ async def process_settings_privacy_policy(callback: CallbackQuery):
         )
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# Раздел: Уведомления
-# ────────────────────────────────────────────────────────────────────────────
+@router.callback_query(F.data == "widget_current_lesson")
+async def process_current_lesson(callback: CallbackQuery):
+    """Отображает текущую пару/перемену в виде виджета."""
+    status = get_current_lesson_status()
+    text = format_current_lesson_message(status)
+    reply_markup = get_current_lesson_keyboard()
+
+    try:
+        await callback.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=reply_markup,
+        )
+        await callback.answer("✅ Данные обновлены!", show_alert=False)
+    except TelegramBadRequest:
+        # Сообщение не изменилось при повторном нажатии "Обновить"
+        await callback.answer("✅ Данные актуальны", show_alert=False)
+    except Exception:
+        await callback.answer()
+        await callback.message.answer(
+            text,
+            parse_mode="HTML",
+            reply_markup=reply_markup,
+        )
+
 
 @router.callback_query(F.data == "subscribe_notifications")
 async def process_subscribe_notifications(callback: CallbackQuery):

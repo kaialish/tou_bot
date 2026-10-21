@@ -1,4 +1,5 @@
 from datetime import datetime
+from src.config import get_kz_now
 from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.types import (
@@ -66,7 +67,7 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
 
     success, html_or_err = await get_schedule_html(login, password, bot=callback.bot)
     if success:
-        now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")
         await save_cached_schedule(user_id, html_or_err, now_str)
         await state.set_state(AuthForm.authorized)
         await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
@@ -128,7 +129,7 @@ async def process_password(message: Message, state: FSMContext):
     success, html_or_err = await get_schedule_html(login, password, bot=message.bot)
 
     if success:
-        now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")
         await save_cached_schedule(user_id, html_or_err, now_str)
         await state.set_state(AuthForm.authorized)
         await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
@@ -171,7 +172,7 @@ async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
 
     success, html_or_err = await get_schedule_html(login, password, bot=callback.bot)
     if success:
-        now_str = datetime.now().strftime("%d.%m.%Y в %H:%M")
+        now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")
         await save_cached_schedule(callback.from_user.id, html_or_err, now_str)
         await state.set_state(AuthForm.authorized)
         await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)

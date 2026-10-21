@@ -1,6 +1,7 @@
 import re
 from datetime import datetime, date, timedelta
 from bs4 import BeautifulSoup
+from src.config import get_kz_now
 
 WEEKDAY_MAP = {
     "Понедельник": 0, "Вторник": 1, "Среда": 2,
@@ -99,7 +100,7 @@ def parse_schedule_items(html_content: str, day: str = "today", target_date: dat
     if target_date is not None:
         target_dt = target_date
     else:
-        now = datetime.now()
+        now = get_kz_now()
         target_dt = now + timedelta(days=1) if day == "tomorrow" else now
     target_day_name = _IDX_TO_WEEKDAY.get(target_dt.weekday(), "")
 
