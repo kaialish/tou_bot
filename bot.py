@@ -143,6 +143,7 @@ async def main():
 
     await bot.set_my_commands([
         BotCommand(command="start", description="Главное меню / Авторизация"),
+        BotCommand(command="clear", description="Очистить историю сообщений в чате"),
         BotCommand(command="admin", description="Панель администратора"),
     ])
 

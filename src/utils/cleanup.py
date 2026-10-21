@@ -55,3 +55,26 @@ async def cleanup_previous_album(bot: Bot, chat_id: int, state: FSMContext) -> N
         except Exception:
             pass
         await state.update_data(schedule_text_id=None)
+
+
+async def clear_chat_history(bot: Bot, chat_id: int, current_msg_id: int, count: int = 100) -> None:
+    """
+    Очищает до `count` сообщений в чате.
+    Сначала пытается удалить пачками по 100 (метод delete_messages),
+    при ошибке удаляет сообщения по одному (метод delete_message).
+    """
+    start_id = max(1, current_msg_id - count)
+    all_ids = list(range(start_id, current_msg_id + 1))
+
+    # Telegram API delete_messages принимает максимум 100 ID за один запрос
+    for i in range(0, len(all_ids), 100):
+        chunk = all_ids[i:i + 100]
+        try:
+            await bot.delete_messages(chat_id=chat_id, message_ids=chunk)
+        except Exception:
+            for mid in reversed(chunk):
+                try:
+                    await bot.delete_message(chat_id=chat_id, message_id=mid)
+                except Exception:
+                    pass
+
