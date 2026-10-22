@@ -25,6 +25,7 @@ from src.services import (
     get_schedule_html,
     get_dashboard_html,
     get_zhurnal_html,
+    parse_schedule_items,
     parse_key_dates,
     format_key_dates_message,
     format_schedule_text,
@@ -571,9 +572,26 @@ async def process_settings_privacy_policy(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == "widget_current_lesson")
-async def process_current_lesson(callback: CallbackQuery):
-    """Отображает текущую пару/перемену в виде виджета."""
-    status = get_current_lesson_status()
+async def process_current_lesson(callback: CallbackQuery, state: FSMContext):
+    """Отображает текущую пару/перемену в виде виджета с предметом и аудиторией."""
+    user_id = callback.from_user.id
+    user_data = await state.get_data()
+    cached_html = user_data.get("cached_html")
+
+    if not cached_html:
+        db_cached = await get_cached_schedule(user_id)
+        if db_cached:
+            cached_html, cached_at = db_cached
+            await state.update_data(cached_html=cached_html, is_offline=True, cached_at=cached_at)
+
+    today_lessons = None
+    if cached_html:
+        try:
+            today_lessons = parse_schedule_items(cached_html, day="today")
+        except Exception:
+            today_lessons = None
+
+    status = get_current_lesson_status(today_lessons=today_lessons)
     text = format_current_lesson_message(status)
     reply_markup = get_current_lesson_keyboard()
 
