@@ -142,7 +142,7 @@ def get_grades_keyboard(current_view: str = "brief", current_part: int = 1) -> I
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"{'✓ ' if current_part == part else ''}{part} часть",
+                    text=f"{'✓ ' if current_part == part else ''}{part} рейтинг",
                     callback_data=f"grades_part_{part}",
                 )
                 for part in (1, 2)
