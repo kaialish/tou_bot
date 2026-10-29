@@ -809,19 +809,26 @@ def _format_score(val: str | float | int | None, default: str = "0") -> str:
         return str(val).strip()
 
 
-def _filter_grades_by_current_week(grades: list[dict], current_week: int) -> tuple[list[dict], float | None, bool]:
-    """
-    1. Обрезает данные строго после недели X.
-    2. Все недели от 1 до X обязательно остаются в выводе. Если балл пуст или 0, он остается 0.
-    3. Считает средний балл: (Сумма всех оценок с 1 по X неделю) / X.
-    4. Возвращает (filtered_grades, average_score, has_any_non_zero_grade).
-    """
-    cutoff = max(1, current_week)
+def _get_part_week_range(current_week: int, part: int) -> range:
+    """Недели выбранной части, уже наступившие по данным портала."""
+    if part not in (1, 2):
+        raise ValueError("part must be 1 or 2")
+    start, end = (1, 8) if part == 1 else (9, 15)
+    return range(start, min(max(1, current_week), end) + 1)
+
+
+def _filter_grades_by_current_week(
+    grades: list[dict], current_week: int, part: int = 1,
+) -> tuple[list[dict], float | None, bool]:
+    """Среднее по наступившим неделям части; пропуски равны нулю."""
+    weeks = _get_part_week_range(current_week, part)
+    if not weeks:
+        return [], None, False
     result = []
     total = 0.0
     has_any_grade = False
 
-    for w in range(1, cutoff + 1):
+    for w in weeks:
         # Ищем оценку за неделю w в массиве
         found_val = "0"
         for g in grades:
@@ -842,21 +849,23 @@ def _filter_grades_by_current_week(grades: list[dict], current_week: int) -> tup
         total += num
         result.append({"week": str(w), "grade": found_val})
 
-    avg = total / cutoff
+    avg = total / len(weeks)
     return result, avg, has_any_grade
 
 
-def _calc_course_real_tu(activities: list[dict], current_week: int, fallback_tu1: str = "") -> tuple[float | None, bool]:
-    """
-    Считает реальный средний балл текущей успеваемости дисциплины
-    по формуле: среднее арифметическое средних баллов активностей с 1 по X неделю.
-    Возвращает (avg_score, has_any_grade).
-    """
+def _calc_course_real_tu(
+    activities: list[dict], current_week: int, fallback_tu: str = "", part: int = 1,
+) -> tuple[float | None, bool]:
+    """Среднее по видам занятий выбранной части, без недель другой части."""
+    if not _get_part_week_range(current_week, part):
+        return None, False
     act_avgs = []
     has_any = False
     for act in activities:
-        r1_grades = act.get("r1_grades", [])
-        _, avg, has_grade = _filter_grades_by_current_week(r1_grades, current_week)
+        grades = act.get(f"r{part}_grades", [])
+        if not grades:
+            continue
+        _, avg, has_grade = _filter_grades_by_current_week(grades, current_week, part)
         if avg is not None:
             act_avgs.append(avg)
         if has_grade:
@@ -866,8 +875,8 @@ def _calc_course_real_tu(activities: list[dict], current_week: int, fallback_tu1
         return sum(act_avgs) / len(act_avgs), has_any
 
     # Если активности пустые
-    if fallback_tu1:
-        val_clean = fallback_tu1.replace(",", ".").strip()
+    if fallback_tu:
+        val_clean = fallback_tu.replace(",", ".").strip()
         match = re.search(r'[-+]?\d*\.?\d+', val_clean)
         if match:
             val = float(match.group())
@@ -883,7 +892,15 @@ def _extract_courses_and_week(zhurnal_data: list[dict] | dict) -> tuple[list[dic
     return zhurnal_data, 15
 
 
-def format_zhurnal_brief(zhurnal_data: list[dict] | dict, updated_at: str = "") -> str:
+def get_zhurnal_part(zhurnal_data: list[dict] | dict) -> int:
+    """С девятой недели по умолчанию открывается вторая часть."""
+    _, current_week = _extract_courses_and_week(zhurnal_data)
+    return 2 if current_week >= 9 else 1
+
+
+def format_zhurnal_brief(
+    zhurnal_data: list[dict] | dict, updated_at: str = "", part: int | None = None,
+) -> str:
     """
     Форматирует краткий вид успеваемости по строгому шаблону:
     📚 [Название предмета]
@@ -891,14 +908,20 @@ def format_zhurnal_brief(zhurnal_data: list[dict] | dict, updated_at: str = "") 
     (Если нет силлабуса: ⚠️ Силлабус не сформирован.)
     """
     courses, current_week = _extract_courses_and_week(zhurnal_data)
+    part = get_zhurnal_part(zhurnal_data) if part is None else part
+    elapsed_weeks = len(_get_part_week_range(current_week, part))
+    part_label = f"{part}-я часть · недели {'1–8' if part == 1 else '9–15'}"
 
     if not courses:
         return "📊 <b>Успеваемость</b>\n\n<i>Данные об успеваемости не найдены.</i>"
 
     lines = [
-        f"📊 <b>Успеваемость · Краткий вид</b> (Неделя: {current_week})",
+        f"📊 <b>Успеваемость · Краткий вид</b> · {part_label} (Неделя: {current_week})",
         "─────────────────────────",
     ]
+
+    if not elapsed_weeks:
+        lines.append("<i>Эта часть обучения ещё не началась.</i>")
 
     for c in courses:
         title = c.get("title", "Без названия")
@@ -918,16 +941,18 @@ def format_zhurnal_brief(zhurnal_data: list[dict] | dict, updated_at: str = "") 
         activities = data.get("activities", [])
         summary = data.get("summary") or {}
 
-        # Пересчитанный честный балл ТУ1 за недели 1..X
-        real_tu, has_any_grade = _calc_course_real_tu(activities, current_week, fallback_tu1=summary.get("tu1", ""))
-        display_tu = _format_score(real_tu) if real_tu is not None else _format_score(summary.get("tu1", ""))
-        rk1 = _format_score(summary.get("rk1", ""))
-        r1 = _format_score(summary.get("r1", ""))
+        # Средний балл только за выбранную часть.
+        real_tu, has_any_grade = _calc_course_real_tu(
+            activities, current_week, fallback_tu=summary.get(f"tu{part}", ""), part=part,
+        )
+        display_tu = _format_score(real_tu) if real_tu is not None else "—"
+        rk = _format_score(summary.get(f"rk{part}", ""))
+        rating = _format_score(summary.get(f"r{part}", ""))
 
         # Светофор на основе реального балла
-        traffic = _get_traffic_light(real_tu, current_week=current_week, has_any_grade=has_any_grade)
+        traffic = _get_traffic_light(real_tu, current_week=elapsed_weeks, has_any_grade=has_any_grade)
 
-        lines.append(f"   💡 ТУ1: <b>{display_tu}</b> • РК1: <b>{rk1}</b> • Р1: <b>{r1}</b> {traffic}\n")
+        lines.append(f"   💡 ТУ{part}: <b>{display_tu}</b> • РК{part}: <b>{rk}</b> • Р{part}: <b>{rating}</b> {traffic}\n")
 
     lines.append("─────────────────────────")
     if updated_at:
@@ -936,7 +961,9 @@ def format_zhurnal_brief(zhurnal_data: list[dict] | dict, updated_at: str = "") 
     return "\n".join(lines).strip()
 
 
-def format_zhurnal_full_chunks(zhurnal_data: list[dict] | dict, updated_at: str = "") -> list[str]:
+def format_zhurnal_full_chunks(
+    zhurnal_data: list[dict] | dict, updated_at: str = "", part: int | None = None,
+) -> list[str]:
     """
     Форматирует полный вид детализации предметов по строгому шаблону:
     📘 Дисциплина: [Название]
@@ -952,15 +979,21 @@ def format_zhurnal_full_chunks(zhurnal_data: list[dict] | dict, updated_at: str 
     [Только реальные недели, пример: 1н: 75 | 2н: 80 | 3н: 80]
     """
     courses, current_week = _extract_courses_and_week(zhurnal_data)
+    part = get_zhurnal_part(zhurnal_data) if part is None else part
+    elapsed_weeks = len(_get_part_week_range(current_week, part))
+    part_label = f"{part}-я часть · недели {'1–8' if part == 1 else '9–15'}"
 
     if not courses:
         return ["📊 <b>Полный журнал успеваемости</b>\n\n<i>Данные об успеваемости не найдены.</i>"]
 
     messages = []
     current_lines = [
-        f"📊 <b>Полный журнал успеваемости</b> (Неделя: {current_week})",
+        f"📊 <b>Полный журнал успеваемости</b> · {part_label} (Неделя: {current_week})",
         "",
     ]
+
+    if not elapsed_weeks:
+        current_lines.append("<i>Эта часть обучения ещё не началась.</i>")
 
     for c in courses:
         c_lines = []
@@ -1007,14 +1040,16 @@ def format_zhurnal_full_chunks(zhurnal_data: list[dict] | dict, updated_at: str 
             summary = data.get("summary", {})
 
             # Реальный балл и светофор
-            real_tu, has_any_grade = _calc_course_real_tu(activities, current_week, fallback_tu1=summary.get("tu1", ""))
-            display_tu = _format_score(real_tu) if real_tu is not None else _format_score(summary.get("tu1", ""))
-            rk1 = _format_score(summary.get("rk1", ""))
-            r1 = _format_score(summary.get("r1", ""))
-            traffic = _get_traffic_light(real_tu, current_week=current_week, has_any_grade=has_any_grade)
+            real_tu, has_any_grade = _calc_course_real_tu(
+                activities, current_week, fallback_tu=summary.get(f"tu{part}", ""), part=part,
+            )
+            display_tu = _format_score(real_tu) if real_tu is not None else "—"
+            rk = _format_score(summary.get(f"rk{part}", ""))
+            rating = _format_score(summary.get(f"r{part}", ""))
+            traffic = _get_traffic_light(real_tu, current_week=elapsed_weeks, has_any_grade=has_any_grade)
 
             c_lines.append("─────────────────────────")
-            c_lines.append(f"🎯 <b>Итог:</b> ТУ1: <b>{display_tu}</b> • РК1: <b>{rk1}</b> • Р1: <b>{r1}</b> {traffic}\n")
+            c_lines.append(f"🎯 <b>Итог:</b> ТУ{part}: <b>{display_tu}</b> • РК{part}: <b>{rk}</b> • Р{part}: <b>{rating}</b> {traffic}\n")
 
             for act in activities:
                 raw_type = act.get("type", "Занятие").strip()
@@ -1027,8 +1062,10 @@ def format_zhurnal_full_chunks(zhurnal_data: list[dict] | dict, updated_at: str 
                 else:
                     act_title = raw_type
 
-                r1_grades = act.get("r1_grades", [])
-                filtered, real_avg, _ = _filter_grades_by_current_week(r1_grades, current_week)
+                grades = act.get(f"r{part}_grades", [])
+                if not grades:
+                    continue
+                filtered, real_avg, _ = _filter_grades_by_current_week(grades, current_week, part)
 
                 if real_avg is not None:
                     avg_text = _format_score(real_avg)
@@ -1047,7 +1084,7 @@ def format_zhurnal_full_chunks(zhurnal_data: list[dict] | dict, updated_at: str 
         if len(current_text) + len(added_text) > 3500:
             messages.append(current_text.strip())
             current_lines = [
-                "📊 <b>Полный журнал (продолжение)</b>\n",
+                f"📊 <b>Полный журнал (продолжение)</b> · {part_label}\n",
             ] + c_lines
         else:
             current_lines.extend(c_lines)

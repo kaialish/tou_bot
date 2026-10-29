@@ -128,7 +128,7 @@ def get_academic_status_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def get_grades_keyboard(current_view: str = "brief") -> InlineKeyboardMarkup:
+def get_grades_keyboard(current_view: str = "brief", current_part: int = 1) -> InlineKeyboardMarkup:
     """
     Клавиатура для раздела 'Успеваемость'.
     current_view: 'brief' (краткий) или 'full' (полный).
@@ -140,6 +140,13 @@ def get_grades_keyboard(current_view: str = "brief") -> InlineKeyboardMarkup:
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"{'✓ ' if current_part == part else ''}{part} часть",
+                    callback_data=f"grades_part_{part}",
+                )
+                for part in (1, 2)
+            ],
             [
                 toggle_button,
                 InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_grades"),
