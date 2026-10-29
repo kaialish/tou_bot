@@ -32,6 +32,7 @@ from src.services import (
     parse_academic_status,
     format_academic_status_message,
     parse_zhurnal,
+    get_zhurnal_part,
     format_zhurnal_brief,
     format_zhurnal_full_chunks,
 )
@@ -246,9 +247,14 @@ async def _cleanup_grades_messages(bot, chat_id: int, state: FSMContext) -> None
     await state.update_data(grades_msg_ids=[])
 
 
-async def _load_and_render_grades(callback: CallbackQuery, state: FSMContext, is_refresh: bool = False, view: str = "brief") -> None:
+async def _load_and_render_grades(
+    callback: CallbackQuery, state: FSMContext, is_refresh: bool = False,
+    view: str | None = None, part: int | None = None,
+) -> None:
     """Загружает данные журнала успеваемости и отображает их пользователю."""
     user_data = await state.get_data()
+    view = view or user_data.get("grades_view", "brief")
+    part = part if part is not None else user_data.get("grades_part")
     login = user_data.get("login")
     password = user_data.get("password")
 
@@ -261,6 +267,7 @@ async def _load_and_render_grades(callback: CallbackQuery, state: FSMContext, is
         login, password = creds
         await state.update_data(login=login, password=password)
 
+    await callback.answer()
     courses = None
     cached_at = ""
 
@@ -285,8 +292,6 @@ async def _load_and_render_grades(callback: CallbackQuery, state: FSMContext, is
             courses_json = json.dumps(courses, ensure_ascii=False)
             await state.update_data(cached_zhurnal_json=courses_json, cached_zhurnal_time=now_str)
             await save_cached_zhurnal(callback.from_user.id, courses_json, now_str)
-            if is_refresh:
-                await callback.answer("✅ Журнал обновлен!", show_alert=False)
         else:
             # Пробуем достать кэш из БД
             db_cached = await get_cached_zhurnal(callback.from_user.id)
@@ -300,18 +305,20 @@ async def _load_and_render_grades(callback: CallbackQuery, state: FSMContext, is
             if not courses:
                 # Ошибка и нет кэша
                 try:
-                    await callback.message.edit_text(html_or_err, parse_mode="HTML", reply_markup=get_grades_keyboard("brief"))
+                    await callback.message.edit_text(html_or_err, parse_mode="HTML", reply_markup=get_grades_keyboard(view, part or 1))
                 except Exception:
-                    await callback.message.answer(html_or_err, parse_mode="HTML", reply_markup=get_grades_keyboard("brief"))
+                    await callback.message.answer(html_or_err, parse_mode="HTML", reply_markup=get_grades_keyboard(view, part or 1))
                 return
 
     # Очищаем старые сообщения полного журнала если были
     await _cleanup_grades_messages(callback.bot, callback.message.chat.id, state)
 
-    kb = get_grades_keyboard(view)
+    part = get_zhurnal_part(courses) if part is None else part
+    await state.update_data(grades_part=part, grades_view=view)
+    kb = get_grades_keyboard(view, part)
 
     if view == "brief":
-        text = format_zhurnal_brief(courses, updated_at=cached_at)
+        text = format_zhurnal_brief(courses, updated_at=cached_at, part=part)
         try:
             await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
             await state.update_data(grades_msg_ids=[callback.message.message_id])
@@ -334,7 +341,7 @@ async def _load_and_render_grades(callback: CallbackQuery, state: FSMContext, is
             await state.update_data(grades_msg_ids=[sent.message_id])
     else:
         # view == "full"
-        chunks = format_zhurnal_full_chunks(courses, updated_at=cached_at)
+        chunks = format_zhurnal_full_chunks(courses, updated_at=cached_at, part=part)
         # Удаляем предыдущее меню/сообщение
         try:
             await callback.message.delete()
@@ -354,13 +361,14 @@ async def _load_and_render_grades(callback: CallbackQuery, state: FSMContext, is
 @router.callback_query(F.data == "menu_grades")
 async def process_menu_grades(callback: CallbackQuery, state: FSMContext):
     """Раздел: Успеваемость (краткий вид по умолчанию)."""
+    await state.update_data(grades_part=None)
     await _load_and_render_grades(callback, state, is_refresh=False, view="brief")
 
 
 @router.callback_query(F.data == "refresh_grades")
 async def process_refresh_grades(callback: CallbackQuery, state: FSMContext):
     """Обновление журнала успеваемости."""
-    await _load_and_render_grades(callback, state, is_refresh=True, view="brief")
+    await _load_and_render_grades(callback, state, is_refresh=True)
 
 
 @router.callback_query(F.data == "grades_view_full")
@@ -373,6 +381,12 @@ async def process_grades_view_full(callback: CallbackQuery, state: FSMContext):
 async def process_grades_view_brief(callback: CallbackQuery, state: FSMContext):
     """Переключение на краткий вид журнала успеваемости."""
     await _load_and_render_grades(callback, state, is_refresh=False, view="brief")
+
+
+@router.callback_query(F.data.in_({"grades_part_1", "grades_part_2"}))
+async def process_grades_part(callback: CallbackQuery, state: FSMContext):
+    """Переключение части с сохранением краткого или полного вида."""
+    await _load_and_render_grades(callback, state, part=int(callback.data.rsplit("_", 1)[1]))
 
 
 @router.callback_query(F.data == "back_to_main_menu")
