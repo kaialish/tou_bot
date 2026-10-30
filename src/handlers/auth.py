@@ -74,7 +74,7 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
 
         await status_msg.delete()
         msg = await callback.message.answer(
-            f"✅ Добро пожаловать, <b>{login}</b>!\nВыберите нужный раздел из меню ниже:",
+            f"🎓 <b>Добро пожаловать в ToUBot!</b>\n\nНажмите по кнопке ниже для перехода в приложение:",
             parse_mode="HTML",
             reply_markup=get_main_menu_keyboard(is_admin=(user_id in ADMIN_IDS))
         )
@@ -88,9 +88,9 @@ async def process_quick_login(callback: CallbackQuery, state: FSMContext):
             await state.update_data(cached_html=cached_html, is_offline=True, cached_at=cached_at)
             await status_msg.delete()
             msg = await callback.message.answer(
-                f"⚠️ <b>Портал ToU временно не отвечает</b>\n\n"
-                f"Вы вошли в автономном режиме. Доступно сохранённое расписание (загружено: <b>{cached_at}</b>).\n\n"
-                f"Выберите нужный раздел:",
+                f"🎓 <b>Добро пожаловать в ToUBot!</b>\n\n"
+                f"⚠️ <i>Автономный режим (портал ToU временно не отвечает).</i>\n\n"
+                f"Нажмите по кнопке ниже для перехода в приложение:",
                 parse_mode="HTML",
                 reply_markup=get_main_menu_keyboard(is_admin=(user_id in ADMIN_IDS))
             )
@@ -137,7 +137,7 @@ async def process_password(message: Message, state: FSMContext):
 
         await status_msg.delete()
         msg = await message.answer(
-            f"✅ Авторизация успешна! Добро пожаловать, <b>{login}</b>.\nВыберите нужный раздел:",
+            f"🎓 <b>Добро пожаловать в ToUBot!</b>\n\nНажмите по кнопке ниже для перехода в приложение:",
             parse_mode="HTML",
             reply_markup=get_main_menu_keyboard(is_admin=(user_id in ADMIN_IDS))
         )
@@ -180,7 +180,7 @@ async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
 
         await status_msg.delete()
         msg = await callback.message.answer(
-            f"✅ Авторизация успешна! Добро пожаловать, <b>{login}</b>.\nВыберите нужный раздел:",
+            f"✅ Авторизация успешна! Добро пожаловать, <b>{login}</b>.\n\nНажмите кнопку ниже, чтобы открыть расписание и успеваемость:",
             parse_mode="HTML",
             reply_markup=get_main_menu_keyboard(is_admin=(callback.from_user.id in ADMIN_IDS))
         )

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>ToU Bot — Студенческий портал</title>
+  
+  <!-- Telegram WebApp JS SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            tgBg: 'var(--tg-theme-bg-color, #0f172a)',
+            tgSecBg: 'var(--tg-theme-secondary-bg-color, #1e293b)',
+            tgText: 'var(--tg-theme-text-color, #f8fafc)',
+            tgHint: 'var(--tg-theme-hint-color, #94a3b8)',
+            tgLink: 'var(--tg-theme-link-color, #10b981)',
+            tgButton: 'var(--tg-theme-button-color, #10b981)',
+            tgButtonText: 'var(--tg-theme-button-text-color, #ffffff)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Плавные переходы и стилизация под нативное мобильное приложение */
+    body {
+      background-color: var(--tg-theme-bg-color, #0b1322);
+      color: var(--tg-theme-text-color, #f8fafc);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .scrollbar-none::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-none {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card-active {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 95, 70, 0.25));
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col pb-20">
+
+  <!-- ==================== ВЕРХНЯЯ ШАПКА ==================== -->
+  <header class="sticky top-0 z-30 px-4 pt-3 pb-2 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <span class="text-xl">🎓</span>
+      </div>
+      <div>
+        <div class="flex items-center space-x-1.5">
+          <h1 class="font-bold text-base leading-tight text-white" id="headerStudentName">Студент ToU</h1>
+          <span id="offlineBadge" class="hidden text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Оффлайн</span>
+        </div>
+        <p class="text-xs text-slate-400" id="headerSubtext">Торайгыров Университет</p>
+      </div>
+    </div>
+    <button id="btnRefresh" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/60 flex items-center justify-center text-slate-300 active:scale-95 transition-all">
+      <svg id="refreshIcon" class="w-4 h-4 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+      </svg>
+    </button>
+  </header>
+
+  <!-- ==================== ГЛАВНЫЙ КОНТЕНТ ==================== -->
+  <main class="flex-1 px-4 pt-3 space-y-4 max-w-lg mx-auto w-full">
+
+    <!-- БАННЕР ТЕКУЩЕЙ ПАРЫ (LIVE WIDGET) -->
+    <div id="liveWidget" class="rounded-2xl p-4 glass-card transition-all">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center space-x-2">
+          <span class="flex h-2.5 w-2.5 relative">
+            <span id="livePing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span id="liveDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span id="liveStatusTitle" class="text-xs font-semibold uppercase tracking-wider text-emerald-400">Текущий статус</span>
+        </div>
+        <span id="liveTimerBadge" class="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60">Загрузка...</span>
+      </div>
+      <div id="liveMainContent">
+        <p class="text-sm font-medium text-white" id="liveLessonTitle">Проверяем расписание...</p>
+        <p class="text-xs text-slate-400 mt-1" id="liveLessonMeta">—</p>
+      </div>
+    </div>
+
+    <!-- ТАБ 1: РАСПИСАНИЕ -->
+    <section id="tabSchedule" class="tab-content space-y-3">
+      <!-- Горизонтальная лента дней недели (Пн, Вт, Ср, Чт, Пт, Сб) -->
+      <div class="flex space-x-2 overflow-x-auto scrollbar-none py-1 -mx-1 px-1" id="weekDaySelector">
+        <!-- Кнопки дней генерируются динамически в app.js -->
+      </div>
+
+      <!-- Заголовок выбранного дня -->
+      <div class="flex items-center justify-between text-xs text-slate-400 pt-1 px-1">
+        <span id="selectedDayLabel" class="font-semibold text-slate-200">Понедельник</span>
+        <span id="lessonsCountLabel">0 пар</span>
+      </div>
+
+      <!-- Список занятий выбранного дня -->
+      <div id="lessonsList" class="space-y-2.5">
+        <!-- Карточки пар генерируются динамически -->
+      </div>
+    </section>
+
+    <!-- ТАБ 2: УСПЕВАЕМОСТЬ -->
+    <section id="tabGrades" class="tab-content space-y-3 hidden">
+      <!-- Переключатель рейтинга (1 рейтинг / 2 рейтинг) -->
+      <div class="flex p-1 bg-slate-800/80 rounded-xl border border-slate-700/60">
+        <button id="btnPart1" class="flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all bg-emerald-500 text-white shadow-sm">
+          1-й рейтинг (1–8 нед)
+        </button>
+        <button id="btnPart2" class="flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-400 hover:text-white">
+          2-й рейтинг (9–15 нед)
+        </button>
+      </div>
+
+      <!-- Информационная плашка текущей недели -->
+      <div class="flex items-center justify-between text-xs px-2 py-2 rounded-xl bg-slate-800/40 border border-slate-800 text-slate-400">
+        <span>Учебная неделя: <strong class="text-white" id="currentWeekNum">--</strong></span>
+        <span class="text-[11px] text-emerald-400">✓ Реальный ТУ с долгами</span>
+      </div>
+
+      <!-- Список дисциплин -->
+      <div id="gradesList" class="space-y-3">
+        <!-- Карточки оценок генерируются динамически -->
+      </div>
+    </section>
+
+    <!-- ТАБ 3: АКАДЕМИЧЕСКИЙ СТАТУС И ДАТЫ -->
+    <section id="tabStatus" class="tab-content space-y-4 hidden">
+      <!-- Блок статуса -->
+      <div>
+        <div class="flex items-center justify-between mb-2 px-1">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Академический статус</h2>
+          <span id="statusOverallBadge" class="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">В норме</span>
+        </div>
+        <div id="academicChecksGrid" class="grid grid-cols-2 gap-2">
+          <!-- Карточки допуска, задолженностей, флюорографии -->
+        </div>
+      </div>
+
+      <!-- Ключевые даты семестра -->
+      <div>
+        <div class="flex items-center justify-between mb-2 px-1">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Ключевые даты</h2>
+          <span id="keyDatesAcademicYear" class="text-[11px] text-slate-500">2026–2027 уч. год</span>
+        </div>
+        <div id="keyDatesList" class="space-y-2">
+          <!-- Таймлайн дат -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (TAB BAR) ==================== -->
+  <nav class="fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800/80 px-6 py-2">
+    <div class="max-w-lg mx-auto flex items-center justify-around">
+      <button class="nav-tab active flex flex-col items-center space-y-1 text-emerald-400" data-tab="tabSchedule">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        <span class="text-[10px] font-medium">Расписание</span>
+      </button>
+
+      <button class="nav-tab flex flex-col items-center space-y-1 text-slate-400 hover:text-slate-200" data-tab="tabGrades">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+        </svg>
+        <span class="text-[10px] font-medium">Успеваемость</span>
+      </button>
+
+      <button class="nav-tab flex flex-col items-center space-y-1 text-slate-400 hover:text-slate-200" data-tab="tabStatus">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+        </svg>
+        <span class="text-[10px] font-medium">Статус</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Скрипт демо-данных (фолбэк для локального тестирования в браузере без бэкенда) -->
+  <script src="/static/mock_data.js"></script>
+  <!-- Основная логика приложения -->
+  <script src="/static/app.js"></script>
+</body>
+</html>
+

@@ -8,6 +8,7 @@ users_data.db
 users.db
 
 # Временные файлы, кэш и артефакты отладки
+cloudflared.exe
 debug.html
 debug_schedule.html
 __pycache__/

@@ -1,21 +1,13 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from src.config import WEBAPP_URL
 
 
 def get_main_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    """Главное меню бота."""
+    """Главное меню бота: кнопка перехода в Mini App и настройки."""
+    app_url = WEBAPP_URL if WEBAPP_URL else "https://tou.edu.kz"
     keyboard = [
         [
-            InlineKeyboardButton(text="🔎 Текущая пара", callback_data="widget_current_lesson"),
-        ],
-        [
-            InlineKeyboardButton(text="📅 Расписание", callback_data="menu_schedule"),
-        ],
-        [
-            InlineKeyboardButton(text="📆 Ключевые даты", callback_data="menu_key_dates"),
-            InlineKeyboardButton(text="📊 Успеваемость", callback_data="menu_grades"),
-        ],
-        [
-            InlineKeyboardButton(text="📌 Академический статус", callback_data="menu_academic_status"),
+            InlineKeyboardButton(text="📱 Открыть ToU Mini App", web_app=WebAppInfo(url=app_url)),
         ],
         [
             InlineKeyboardButton(text="⚙️ Настройки", callback_data="menu_settings"),

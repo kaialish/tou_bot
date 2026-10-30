@@ -440,7 +440,7 @@ async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
         # Если удалить сообщение не удалось, редактируем его в Главное меню
         try:
             await callback.message.edit_text(
-                "🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
+                "🏠 <b>Главное меню ToU Bot</b>\nНажмите кнопку ниже, чтобы открыть приложение:",
                 parse_mode="HTML",
                 reply_markup=get_main_menu_keyboard(is_admin=is_admin)
             )
@@ -451,7 +451,7 @@ async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
 
     main_msg = await callback.bot.send_message(
         chat_id=chat_id,
-        text="🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
+        text="🎓 <b>Добро пожаловать в ToUBot!</b>\n\nНажмите по кнопке ниже для перехода в приложение:",
         parse_mode="HTML",
         reply_markup=get_main_menu_keyboard(is_admin=is_admin)
     )
