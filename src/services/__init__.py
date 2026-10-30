@@ -7,6 +7,7 @@ from .parser import (
     parse_academic_status,
     format_academic_status_message,
     parse_zhurnal,
+    get_zhurnal_part,
     format_zhurnal_brief,
     format_zhurnal_full_chunks,
 )
@@ -32,6 +33,7 @@ __all__ = [
     "parse_academic_status",
     "format_academic_status_message",
     "parse_zhurnal",
+    "get_zhurnal_part",
     "format_zhurnal_brief",
     "format_zhurnal_full_chunks",
     "generate_schedule_image",
