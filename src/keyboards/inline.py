@@ -66,23 +66,33 @@ def get_schedule_keyboard(current_format: str = "photo") -> InlineKeyboardMarkup
     )
 
 
-def get_settings_keyboard(is_subscribed: bool = True, *args, **kwargs) -> InlineKeyboardMarkup:
-    """Клавиатура меню настроек (уведомления и конфиденциальность)."""
+def get_settings_keyboard(is_subscribed: bool = True, notify_mook: bool = False, *args, **kwargs) -> InlineKeyboardMarkup:
+    """Клавиатура меню настроек (уведомления, тумблер MOOK и конфиденциальность)."""
     notify_label = "🔔 Включены" if is_subscribed else "🔕 Отключены"
+    mook_label = "🔔 Включены" if notify_mook else "🔕 Отключены"
 
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text=f"Уведомления о парах: {notify_label}", callback_data="settings_toggle_notifications"),
-            ],
-            [
-                InlineKeyboardButton(text="🛡️ Политика конфиденциальности", callback_data="settings_privacy_policy"),
-            ],
-            [
-                InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_to_main_menu"),
-            ],
-        ]
-    )
+    keyboard = [
+        [
+            InlineKeyboardButton(text=f"Уведомления о парах: {notify_label}", callback_data="settings_toggle_notifications"),
+        ],
+    ]
+
+    # Тумблер MOOK показываем, если основные уведомления активны
+    if is_subscribed:
+        keyboard.append([
+            InlineKeyboardButton(text=f"Пары MOOK (дистант): {mook_label}", callback_data="settings_toggle_mook"),
+        ])
+
+    keyboard.extend([
+        [
+            InlineKeyboardButton(text="🛡️ Политика конфиденциальности", callback_data="settings_privacy_policy"),
+        ],
+        [
+            InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_to_main_menu"),
+        ],
+    ])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def get_privacy_policy_keyboard() -> InlineKeyboardMarkup:

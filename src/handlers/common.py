@@ -20,6 +20,8 @@ from src.database import (
     is_user_subscribed,
     get_user_schedule_format,
     toggle_user_schedule_format,
+    get_user_mook_setting,
+    toggle_user_mook_setting,
 )
 from src.services import (
     get_schedule_html,
@@ -462,6 +464,39 @@ async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
 # Раздел: Настройки и вид расписания
 # ────────────────────────────────────────────────────────────────────────────
 
+async def _render_settings(callback: CallbackQuery, is_sub: bool, notify_mook: bool):
+    """Отображает экран настроек с актуальным состоянием параметров."""
+    notify_desc = "✅ <b>Включены</b>" if is_sub else "❌ <b>Отключены</b>"
+    mook_desc = "✅ <b>Включены</b>" if notify_mook else "❌ <b>Отключены</b>"
+
+    mook_line = (
+        f"📱 <b>Уведомления для пар MOOK (дистант):</b> {mook_desc}\n"
+        "<i>💡 При отключении уведомления о дистанционных парах приходить не будут.</i>\n\n"
+    ) if is_sub else ""
+
+    text = (
+        "⚙️ <b>Настройки бота</b>\n\n"
+        f"🔔 <b>Уведомления об окончании пар:</b> {notify_desc}\n\n"
+        "<i>💡 При включении бот будет присылать уведомление за пару минут до окончания пары, "
+        "а также сообщать, сколько продлится следующая перемена (её длительность и время на отдых).</i>\n\n"
+        f"{mook_line}"
+        "Нажмите на кнопку ниже, чтобы переключить параметр:"
+    )
+
+    try:
+        await callback.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=get_settings_keyboard(is_subscribed=is_sub, notify_mook=notify_mook)
+        )
+    except Exception:
+        await callback.message.answer(
+            text,
+            parse_mode="HTML",
+            reply_markup=get_settings_keyboard(is_subscribed=is_sub, notify_mook=notify_mook)
+        )
+
+
 @router.callback_query(F.data == "menu_settings")
 async def process_menu_settings(callback: CallbackQuery, state: FSMContext):
     """Раздел персональных настроек пользователя."""
@@ -477,29 +512,8 @@ async def process_menu_settings(callback: CallbackQuery, state: FSMContext):
 
     user_id = callback.from_user.id
     is_sub = await is_user_subscribed(user_id)
-
-    notify_desc = "✅ <b>Включены</b>" if is_sub else "❌ <b>Отключены</b>"
-
-    text = (
-        "⚙️ <b>Настройки бота</b>\n\n"
-        f"🔔 <b>Уведомления об окончании пар:</b> {notify_desc}\n\n"
-        "<i>💡 При включении бот будет присылать уведомление за пару минут до окончания пары, "
-        "а также сообщать, сколько продлится следующая перемена (её длительность и время на отдых).</i>\n\n"
-        "Нажмите на кнопку ниже, чтобы переключить параметр:"
-    )
-
-    try:
-        await callback.message.edit_text(
-            text,
-            parse_mode="HTML",
-            reply_markup=get_settings_keyboard(is_subscribed=is_sub)
-        )
-    except Exception:
-        await callback.message.answer(
-            text,
-            parse_mode="HTML",
-            reply_markup=get_settings_keyboard(is_subscribed=is_sub)
-        )
+    notify_mook = await get_user_mook_setting(user_id)
+    await _render_settings(callback, is_sub, notify_mook)
 
 
 @router.callback_query(F.data == "settings_toggle_format")
@@ -508,28 +522,11 @@ async def process_settings_toggle_format(callback: CallbackQuery):
     user_id = callback.from_user.id
     new_format = await toggle_user_schedule_format(user_id)
     is_sub = await is_user_subscribed(user_id)
+    notify_mook = await get_user_mook_setting(user_id)
 
     mode_name = "📝 Текстовый вид" if new_format == "text" else "🖼️ Картинка (PNG)"
     await callback.answer(f"Вид изменен на: {mode_name}", show_alert=False)
-
-    notify_desc = "✅ <b>Включены</b>" if is_sub else "❌ <b>Отключены</b>"
-
-    text = (
-        "⚙️ <b>Настройки бота</b>\n\n"
-        f"🔔 <b>Уведомления об окончании пар:</b> {notify_desc}\n\n"
-        "<i>💡 При включении бот будет присылать уведомление за пару минут до окончания пары, "
-        "а также сообщать, сколько продлится следующая перемена (её длительность и время на отдых).</i>\n\n"
-        "Нажмите на кнопку ниже, чтобы переключить параметр:"
-    )
-
-    try:
-        await callback.message.edit_text(
-            text,
-            parse_mode="HTML",
-            reply_markup=get_settings_keyboard(is_subscribed=is_sub)
-        )
-    except Exception:
-        pass
+    await _render_settings(callback, is_sub, notify_mook)
 
 
 @router.callback_query(F.data == "settings_toggle_notifications")
@@ -547,24 +544,19 @@ async def process_settings_toggle_notifications(callback: CallbackQuery):
         new_sub = True
         await callback.answer("🔔 Уведомления включены", show_alert=False)
 
-    notify_desc = "✅ <b>Включены</b>" if new_sub else "❌ <b>Отключены</b>"
+    notify_mook = await get_user_mook_setting(user_id)
+    await _render_settings(callback, new_sub, notify_mook)
 
-    text = (
-        "⚙️ <b>Настройки бота</b>\n\n"
-        f"🔔 <b>Уведомления об окончании пар:</b> {notify_desc}\n\n"
-        "<i>💡 При включении бот будет присылать уведомление за пару минут до окончания пары, "
-        "а также сообщать, сколько продлится следующая перемена (её длительность и время на отдых).</i>\n\n"
-        "Нажмите на кнопку ниже, чтобы переключить параметр:"
-    )
 
-    try:
-        await callback.message.edit_text(
-            text,
-            parse_mode="HTML",
-            reply_markup=get_settings_keyboard(is_subscribed=new_sub)
-        )
-    except Exception:
-        pass
+@router.callback_query(F.data == "settings_toggle_mook")
+async def process_settings_toggle_mook(callback: CallbackQuery):
+    """Переключение уведомлений для пар MOOK (дистанционное обучение)."""
+    user_id = callback.from_user.id
+    new_mook = await toggle_user_mook_setting(user_id)
+    is_sub = await is_user_subscribed(user_id)
+    label = "включены" if new_mook else "отключены"
+    await callback.answer(f"📱 Уведомления MOOK {label}", show_alert=False)
+    await _render_settings(callback, is_sub, new_mook)
 
 
 @router.callback_query(F.data == "settings_privacy_policy")
