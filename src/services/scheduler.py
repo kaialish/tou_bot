@@ -15,6 +15,7 @@ from src.database import (
     get_subscribed_users_with_schedules,
     get_user_credentials,
     save_cached_schedule,
+    set_last_notification_msg_id,
 )
 from src.services.parser import parse_schedule_items
 from src.services.tou_client import get_schedule_html
@@ -233,7 +234,8 @@ async def send_notification_task(bot: Bot) -> None:
 
         # Фильтруем тех, кому по данному слоту сегодня ещё не отправляли уведомление
         pending_subscribers = [
-            (uid, html) for uid, html in subscribers
+            (uid, html, notify_mook, last_msg_id)
+            for uid, html, notify_mook, last_msg_id in subscribers
             if (uid, slot["number"]) not in _sent_user_notifications[today_key]
         ]
         if not pending_subscribers:
@@ -242,7 +244,7 @@ async def send_notification_task(bot: Bot) -> None:
         sent_count = 0
         errors = 0
 
-        for user_id, schedule_html in pending_subscribers:
+        for user_id, schedule_html, notify_mook, last_msg_id in pending_subscribers:
             try:
                 # Если кэш расписания отсутствует, пробуем разово подгрузить
                 if not schedule_html:
@@ -280,15 +282,34 @@ async def send_notification_task(bot: Bot) -> None:
 
                 # Пользователь действительно учится на этой паре прямо сейчас!
                 current_lesson = matching_lessons[0]
+
+                # Проверка: является ли пара дистанционной (MOOK)
+                is_mook = any(
+                    "mook" in str(current_lesson.get(field, "")).lower()
+                    for field in ("subject", "type", "room")
+                )
+                if is_mook and not notify_mook:
+                    # Пользователь отключил уведомления для MOOK-пар
+                    _sent_user_notifications[today_key].add((user_id, slot["number"]))
+                    continue
+
                 user_slots = _get_user_slots_today(today_lessons)
                 message_text = _format_user_notification(slot, current_lesson, user_slots)
 
-                await bot.send_message(
+                # Удаляем предыдущее уведомление об окончании пары, если оно было
+                if last_msg_id:
+                    try:
+                        await bot.delete_message(chat_id=user_id, message_id=last_msg_id)
+                    except Exception:
+                        pass
+
+                sent_msg = await bot.send_message(
                     chat_id=user_id,
                     text=message_text,
                     parse_mode="HTML"
                 )
                 sent_count += 1
+                await set_last_notification_msg_id(user_id, sent_msg.message_id)
                 _sent_user_notifications[today_key].add((user_id, slot["number"]))
 
             except Exception:

@@ -12,7 +12,7 @@ from src.database import (
     save_cached_schedule, get_cached_schedule
 )
 from src.services import get_schedule_html
-from src.keyboards import get_disclaimer_keyboard, get_main_menu_keyboard
+from src.keyboards import get_disclaimer_keyboard, get_main_menu_keyboard, get_storage_mode_keyboard
 from src.states import AuthForm
 from src.utils import DISCLAIMER_TEXT
 from src.config import ADMIN_IDS
@@ -26,12 +26,31 @@ async def cmd_start(message: Message, state: FSMContext):
     saved_data = await get_user_credentials(message.from_user.id)
 
     if saved_data:
-        saved_login, _ = saved_data
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"🔑 Войти как {saved_login}", callback_data="quick_login")],
-            [InlineKeyboardButton(text="✏️ Ввести другой логин", callback_data="manual_login")]
-        ])
-        await message.answer("С возвращением! Войти под сохраненным аккаунтом?", reply_markup=kb)
+        saved_login, saved_password = saved_data
+        if saved_password:
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=f"🔑 Войти как {saved_login}", callback_data="quick_login")],
+                [InlineKeyboardButton(text="✏️ Ввести другой логин", callback_data="manual_login")]
+            ])
+            await message.answer("С возвращением! Войти под сохраненным аккаунтом?", reply_markup=kb)
+        else:
+            # Пользователь в режиме максимальной безопасности (без пароля)
+            db_cached = await get_cached_schedule(message.from_user.id)
+            if db_cached:
+                cached_html, cached_at = db_cached
+                await state.set_state(AuthForm.authorized)
+                await state.update_data(login=saved_login, cached_html=cached_html, is_offline=True, cached_at=cached_at)
+                msg = await message.answer(
+                    f"👋 С возвращением в ToUBot, <b>{saved_login}</b>!\n"
+                    f"Режим: 🛡️ <b>Максимальная безопасность</b> (без сохранения пароля)\n\n"
+                    f"Выберите нужный раздел из меню ниже:",
+                    parse_mode="HTML",
+                    reply_markup=get_main_menu_keyboard(is_admin=(message.from_user.id in ADMIN_IDS))
+                )
+                await state.update_data(main_menu_msg_id=msg.message_id)
+            else:
+                await message.answer(DISCLAIMER_TEXT, parse_mode="HTML", reply_markup=get_disclaimer_keyboard())
+                await state.set_state(AuthForm.waiting_for_disclaimer_accept)
     else:
         # Показываем дисклеймер перед первичным вводом
         await message.answer(DISCLAIMER_TEXT, parse_mode="HTML", reply_markup=get_disclaimer_keyboard())
@@ -131,17 +150,29 @@ async def process_password(message: Message, state: FSMContext):
     if success:
         now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")
         await save_cached_schedule(user_id, html_or_err, now_str)
-        await state.set_state(AuthForm.authorized)
-        await state.update_data(cached_html=html_or_err, is_offline=False, cached_at=now_str)
-        await save_user_credentials(user_id, login, password)
+        await state.update_data(
+            cached_html=html_or_err,
+            is_offline=False,
+            cached_at=now_str,
+            temp_login=login,
+            temp_password=password
+        )
 
         await status_msg.delete()
-        msg = await message.answer(
-            f"✅ Авторизация успешна! Добро пожаловать, <b>{login}</b>.\nВыберите нужный раздел:",
-            parse_mode="HTML",
-            reply_markup=get_main_menu_keyboard(is_admin=(user_id in ADMIN_IDS))
+        mode_text = (
+            "🔐 <b>Авторизация успешна!</b>\n\n"
+            "Выберите режим хранения ваших данных в боте:\n\n"
+            "⚡ <b>Обычный (Быстрый вход)</b>\n"
+            "<i>Пароль надёжно шифруется (Fernet). Бот автоматически обновляет расписание, статус и журнал оценок в 1 клик.</i>\n\n"
+            "🛡️ <b>Максимальная безопасность</b>\n"
+            "<i>Пароль НЕ сохраняется в базе бота. Сохраняется только расписание на семестр. Пароль сразу же стирается.</i>"
         )
-        await state.update_data(main_menu_msg_id=msg.message_id)
+        await message.answer(
+            mode_text,
+            parse_mode="HTML",
+            reply_markup=get_storage_mode_keyboard()
+        )
+        await state.set_state(AuthForm.waiting_for_storage_mode)
     else:
         retry_kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="retry_auth")],
@@ -206,3 +237,57 @@ async def process_retry_auth(callback: CallbackQuery, state: FSMContext):
                 [InlineKeyboardButton(text="✏️ Ввести заново", callback_data="manual_login")]
             ])
             await status_msg.edit_text(html_or_err, parse_mode="HTML", reply_markup=retry_kb)
+
+
+@router.callback_query(F.data == "auth_mode_standard", AuthForm.waiting_for_storage_mode)
+async def process_auth_mode_standard(callback: CallbackQuery, state: FSMContext):
+    """Выбран обычный режим: пароль шифруется и сохраняется."""
+    user_id = callback.from_user.id
+    user_data = await state.get_data()
+    login = user_data.get("temp_login")
+    password = user_data.get("temp_password")
+
+    await save_user_credentials(user_id, login, password, save_password=True)
+    await state.update_data(login=login, password=password, temp_login=None, temp_password=None)
+    await state.set_state(AuthForm.authorized)
+
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    msg = await callback.message.answer(
+        f"✅ <b>Добро пожаловать в ToUBot, {login}!</b>\n"
+        f"Режим: ⚡ <b>Обычный (Быстрый вход)</b>\n\n"
+        f"Выберите нужный раздел из меню ниже:",
+        parse_mode="HTML",
+        reply_markup=get_main_menu_keyboard(is_admin=(user_id in ADMIN_IDS))
+    )
+    await state.update_data(main_menu_msg_id=msg.message_id)
+
+
+@router.callback_query(F.data == "auth_mode_secure", AuthForm.waiting_for_storage_mode)
+async def process_auth_mode_secure(callback: CallbackQuery, state: FSMContext):
+    """Выбран режим повышенной безопасности: пароль НЕ сохраняется в БД."""
+    user_id = callback.from_user.id
+    user_data = await state.get_data()
+    login = user_data.get("temp_login")
+
+    # Пароль не сохраняется в базе и стирается из стейта
+    await save_user_credentials(user_id, login, "", save_password=False)
+    await state.update_data(login=login, password=None, temp_login=None, temp_password=None)
+    await state.set_state(AuthForm.authorized)
+
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    msg = await callback.message.answer(
+        f"✅ <b>Добро пожаловать в ToUBot, {login}!</b>\n"
+        f"Режим: 🛡️ <b>Максимальная безопасность</b> (пароль не сохранён)\n\n"
+        f"Выберите нужный раздел из меню ниже:",
+        parse_mode="HTML",
+        reply_markup=get_main_menu_keyboard(is_admin=(user_id in ADMIN_IDS))
+    )
+    await state.update_data(main_menu_msg_id=msg.message_id)
