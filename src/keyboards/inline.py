@@ -67,7 +67,7 @@ def get_schedule_keyboard(current_format: str = "photo") -> InlineKeyboardMarkup
 
 
 def get_settings_keyboard(is_subscribed: bool = True, notify_mook: bool = False, *args, **kwargs) -> InlineKeyboardMarkup:
-    """Клавиатура меню настроек (уведомления, тумблер MOOK и конфиденциальность)."""
+    """Клавиатура меню настроек (уведомления, тумблер MOOK, конфиденциальность и удаление данных)."""
     notify_label = "🔔 Включены" if is_subscribed else "🔕 Отключены"
     mook_label = "🔔 Включены" if notify_mook else "🔕 Отключены"
 
@@ -86,6 +86,9 @@ def get_settings_keyboard(is_subscribed: bool = True, notify_mook: bool = False,
     keyboard.extend([
         [
             InlineKeyboardButton(text="🛡️ Политика конфиденциальности", callback_data="settings_privacy_policy"),
+        ],
+        [
+            InlineKeyboardButton(text="🗑️ Удалить все мои данные", callback_data="settings_delete_account"),
         ],
         [
             InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_to_main_menu"),
@@ -192,5 +195,32 @@ def get_disclaimer_keyboard() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(text="✅ Принять и продолжить", callback_data="accept_disclaimer"),
             ]
+        ]
+    )
+
+def get_storage_mode_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура выбора режима хранения данных."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="⚡ Обычный (быстрый вход)", callback_data="auth_mode_standard"),
+            ],
+            [
+                InlineKeyboardButton(text="🛡️ Максимальная безопасность", callback_data="auth_mode_secure"),
+            ],
+        ]
+    )
+
+
+def get_confirm_delete_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура подтверждения удаления всех данных."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🗑️ Да, безвозвратно удалить всё", callback_data="confirm_delete_account"),
+            ],
+            [
+                InlineKeyboardButton(text="⬅️ Отмена (назад в настройки)", callback_data="menu_settings"),
+            ],
         ]
     )

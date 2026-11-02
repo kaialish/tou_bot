@@ -22,6 +22,8 @@ from src.database import (
     toggle_user_schedule_format,
     get_user_mook_setting,
     toggle_user_mook_setting,
+    is_user_password_saved,
+    delete_user_account,
 )
 from src.services import (
     get_schedule_html,
@@ -46,6 +48,7 @@ from src.keyboards import (
     get_grades_keyboard,
     get_privacy_policy_keyboard,
     get_current_lesson_keyboard,
+    get_confirm_delete_keyboard,
 )
 from src.utils import cleanup_previous_album, PRIVACY_POLICY_TEXT, clear_chat_history
 from src.utils.lesson_widget import get_current_lesson_status, format_current_lesson_message
@@ -165,11 +168,34 @@ async def _load_and_render_academic_status(callback: CallbackQuery, state: FSMCo
     if not login or not password:
         creds = await get_user_credentials(callback.from_user.id)
         if creds:
-            login, password = creds
+            login, db_pw = creds
+            password = password or db_pw
             await state.update_data(login=login, password=password)
         else:
             await callback.answer("Сессия истекла. Нажмите /start заново.", show_alert=True)
             return
+
+    # Если пароль не сохранён (режим безопасности), проверяем кэш
+    if not password and not is_refresh:
+        cached = await get_cached_academic_status(callback.from_user.id)
+        if cached:
+            status_json, cached_at = cached
+            try:
+                status_data = json.loads(status_json)
+                text = format_academic_status_message(status_data, updated_at=cached_at)
+                text += "\n\n🛡️ <i>Вы в режиме максимальной безопасности (без пароля). Отображены сохранённые данные.</i>"
+                kb = get_academic_status_keyboard()
+                try:
+                    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+                except Exception:
+                    await callback.message.answer(text, parse_mode="HTML", reply_markup=kb)
+                return
+            except Exception:
+                pass
+
+    if not password:
+        await callback.answer("Для обновления с портала введите логин и пароль через /start", show_alert=True)
+        return
 
     # Запрашиваем страницу дашборда с портала
     success, html_or_err = await get_dashboard_html(login, password, bot=callback.bot)
@@ -266,7 +292,8 @@ async def _load_and_render_grades(
         if not creds:
             await callback.answer("⚠️ Вы не авторизованы. Отправьте /start", show_alert=True)
             return
-        login, password = creds
+        login, db_pw = creds
+        password = password or db_pw
         await state.update_data(login=login, password=password)
 
     await callback.answer()
@@ -284,7 +311,20 @@ async def _load_and_render_grades(
         except Exception:
             courses = None
 
-    if courses is None or is_refresh:
+    if (courses is None or is_refresh) and not password:
+        # Режим без сохранения пароля: пробуем взять сохранённый кэш из БД
+        db_cached = await get_cached_zhurnal(callback.from_user.id)
+        if db_cached:
+            try:
+                courses = json.loads(db_cached[0])
+                cached_at = f"{db_cached[1]} (сохранено)"
+            except Exception:
+                courses = None
+        if not courses:
+            await callback.answer("Для загрузки журнала требуется пароль. Отправьте /start для обновления.", show_alert=True)
+            return
+
+    elif courses is None or is_refresh:
         success, html_or_err = await get_zhurnal_html(login, password, bot=callback.bot)
 
         if success:
@@ -464,10 +504,11 @@ async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
 # Раздел: Настройки и вид расписания
 # ────────────────────────────────────────────────────────────────────────────
 
-async def _render_settings(callback: CallbackQuery, is_sub: bool, notify_mook: bool):
+async def _render_settings(callback: CallbackQuery, is_sub: bool, notify_mook: bool, is_pw_saved: bool = True):
     """Отображает экран настроек с актуальным состоянием параметров."""
     notify_desc = "✅ <b>Включены</b>" if is_sub else "❌ <b>Отключены</b>"
     mook_desc = "✅ <b>Включены</b>" if notify_mook else "❌ <b>Отключены</b>"
+    pw_mode_desc = "⚡ <b>Обычный (Быстрый вход)</b>" if is_pw_saved else "🛡️ <b>Максимальная безопасность (без пароля)</b>"
 
     mook_line = (
         f"📱 <b>Уведомления для пар MOOK (дистант):</b> {mook_desc}\n"
@@ -476,6 +517,7 @@ async def _render_settings(callback: CallbackQuery, is_sub: bool, notify_mook: b
 
     text = (
         "⚙️ <b>Настройки бота</b>\n\n"
+        f"🔐 <b>Режим данных:</b> {pw_mode_desc}\n\n"
         f"🔔 <b>Уведомления об окончании пар:</b> {notify_desc}\n\n"
         "<i>💡 При включении бот будет присылать уведомление за пару минут до окончания пары, "
         "а также сообщать, сколько продлится следующая перемена (её длительность и время на отдых).</i>\n\n"
@@ -513,7 +555,8 @@ async def process_menu_settings(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     is_sub = await is_user_subscribed(user_id)
     notify_mook = await get_user_mook_setting(user_id)
-    await _render_settings(callback, is_sub, notify_mook)
+    is_pw_saved = await is_user_password_saved(user_id)
+    await _render_settings(callback, is_sub, notify_mook, is_pw_saved)
 
 
 @router.callback_query(F.data == "settings_toggle_format")
@@ -523,10 +566,11 @@ async def process_settings_toggle_format(callback: CallbackQuery):
     new_format = await toggle_user_schedule_format(user_id)
     is_sub = await is_user_subscribed(user_id)
     notify_mook = await get_user_mook_setting(user_id)
+    is_pw_saved = await is_user_password_saved(user_id)
 
     mode_name = "📝 Текстовый вид" if new_format == "text" else "🖼️ Картинка (PNG)"
     await callback.answer(f"Вид изменен на: {mode_name}", show_alert=False)
-    await _render_settings(callback, is_sub, notify_mook)
+    await _render_settings(callback, is_sub, notify_mook, is_pw_saved)
 
 
 @router.callback_query(F.data == "settings_toggle_notifications")
@@ -545,7 +589,8 @@ async def process_settings_toggle_notifications(callback: CallbackQuery):
         await callback.answer("🔔 Уведомления включены", show_alert=False)
 
     notify_mook = await get_user_mook_setting(user_id)
-    await _render_settings(callback, new_sub, notify_mook)
+    is_pw_saved = await is_user_password_saved(user_id)
+    await _render_settings(callback, new_sub, notify_mook, is_pw_saved)
 
 
 @router.callback_query(F.data == "settings_toggle_mook")
@@ -555,8 +600,9 @@ async def process_settings_toggle_mook(callback: CallbackQuery):
     new_mook = await toggle_user_mook_setting(user_id)
     is_sub = await is_user_subscribed(user_id)
     label = "включены" if new_mook else "отключены"
+    is_pw_saved = await is_user_password_saved(user_id)
     await callback.answer(f"📱 Уведомления MOOK {label}", show_alert=False)
-    await _render_settings(callback, is_sub, new_mook)
+    await _render_settings(callback, is_sub, new_mook, is_pw_saved)
 
 
 @router.callback_query(F.data == "settings_privacy_policy")
@@ -648,3 +694,55 @@ async def process_unsubscribe_notifications(callback: CallbackQuery):
 async def process_menu_notifications(callback: CallbackQuery):
     """Перенаправление старого вызова уведомлений в объединённый раздел настроек."""
     await process_menu_settings(callback)
+
+@router.callback_query(F.data == "settings_delete_account")
+async def process_settings_delete_account(callback: CallbackQuery):
+    """Запрос подтверждения удаления всех данных пользователя."""
+    await callback.answer()
+    text = (
+        "⚠️ <b>Удаление всех персональных данных</b>\n\n"
+        "Вы действительно хотите безвозвратно удалить все свои данные из ToUBot?\n\n"
+        "Будут удалены:\n"
+        "• Ваша учётная запись и логин\n"
+        "• Сохранённый пароль (если был сохранён)\n"
+        "• Подписки на уведомления об окончании пар\n"
+        "• Весь сохранённый кэш расписания, оценок и статуса\n\n"
+        "❗️ <b>Это действие необратимо!</b>"
+    )
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_confirm_delete_keyboard())
+    except Exception:
+        await callback.message.answer(text, parse_mode="HTML", reply_markup=get_confirm_delete_keyboard())
+
+
+@router.callback_query(F.data == "confirm_delete_account")
+async def process_confirm_delete_account(callback: CallbackQuery, state: FSMContext):
+    """Окончательное удаление всех данных пользователя."""
+    user_id = callback.from_user.id
+    chat_id = callback.message.chat.id if callback.message else user_id
+
+    try:
+        await cleanup_previous_album(callback.bot, chat_id, state)
+    except Exception:
+        pass
+    try:
+        await _cleanup_grades_messages(callback.bot, chat_id, state)
+    except Exception:
+        pass
+
+    await delete_user_account(user_id)
+    await state.clear()
+
+    await callback.answer("✅ Все данные успешно удалены", show_alert=True)
+    text = (
+        "🗑️ <b>Ваши данные полностью удалены</b>\n\n"
+        "Все ваши персональные данные, учётная запись, подписки и кэш безвозвратно стёрты из базы бота.\n\n"
+        "Спасибо, что пользовались ToUBot! Если захотите вернуться, просто отправьте команду /start ✨"
+    )
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML")
+    except Exception:
+        await callback.message.answer(text, parse_mode="HTML")
+
+
+
