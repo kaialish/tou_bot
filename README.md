@@ -114,6 +114,10 @@ ADMIN_IDS=123456789,987654321
 TZ=Asia/Almaty
 SECRET_KEY=сгенерированный_ключ_fernet
 ```
+Для генерации собственного секретного ключа Fernet:
+```Console
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
 
 ### 4. Запуск бота
 ```bash
