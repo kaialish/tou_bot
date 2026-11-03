@@ -62,18 +62,25 @@ router = Router()
 async def cmd_clear(message: Message, state: FSMContext):
     """
     Команда /clear или /clean — быстрая очистка чата.
-    Удаляет историю сообщений (до 100 последних сообщений) и возвращает главное меню.
+    Удаляет историю сообщений (весь чат) и возвращает главное меню.
     """
     chat_id = message.chat.id
     current_msg_id = message.message_id
     bot = message.bot
     user_id = message.from_user.id
 
-    # Определяем количество сообщений для очистки (по умолчанию 100, либо: /clear 50)
-    count = 100
+    # Определяем количество сообщений для очистки:
+    # По умолчанию — 2000 (весь чат от начала до конца), либо указанное число: /clear 50
+    count = 2000
     args = message.text.split() if message.text else []
     if len(args) > 1 and args[1].isdigit():
-        count = min(100, max(1, int(args[1])))
+        count = max(1, int(args[1]))
+
+    # Сначала удаляем временные сохранённые медиагруппы альбомов
+    try:
+        await cleanup_previous_album(bot, chat_id, state)
+    except Exception:
+        pass
 
     # Очищаем состояние FSM и сохранённые ID сообщений
     await state.clear()
@@ -85,14 +92,16 @@ async def cmd_clear(message: Message, state: FSMContext):
     is_admin = user_id in ADMIN_IDS
     creds = await get_user_credentials(user_id)
     if creds:
-        await message.answer(
-            "🧹 <b>Чат очищен!</b>\n\nГлавное меню бота:",
+        await state.set_state(AuthForm.authorized)
+        msg = await message.answer(
+            "🧹 <b>Чат полностью очищен!</b>\n\nГлавное меню бота:",
             parse_mode="HTML",
             reply_markup=get_main_menu_keyboard(is_admin=is_admin)
         )
+        await state.update_data(main_menu_msg_id=msg.message_id)
     else:
         await message.answer(
-            "🧹 <b>Чат очищен!</b>\n\nДля авторизации нажмите /start",
+            "🧹 <b>Чат полностью очищен!</b>\n\nДля авторизации нажмите /start",
             parse_mode="HTML"
         )
 
