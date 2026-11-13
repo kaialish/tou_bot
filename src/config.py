@@ -72,5 +72,6 @@ LESSONS_SCHEDULE = [
     {"number": 9, "start": "16:25", "end": "17:15", "break_duration": 5},
     {"number": 10, "start": "17:20", "end": "18:10", "break_duration": 5},
     {"number": 11, "start": "18:15", "end": "19:05", "break_duration": 5},
-    {"number": 12, "start": "19:10", "end": "20:00", "break_duration": 0},
+    {"number": 12, "start": "19:10", "end": "20:00", "break_duration": 15},
+    {"number": 13, "start": "20:15", "end": "21:05", "break_duration": 0},
 ]
