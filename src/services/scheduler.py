@@ -129,16 +129,55 @@ def _get_user_slots_today(today_lessons: list[dict]) -> list[tuple[dict, dict]]:
     return user_slots
 
 
+def is_mook_lesson(lesson: dict | None) -> bool:
+    """
+    Определяет, является ли занятие дистанционным / МООК.
+    Проверяет поля 'room', 'type', 'subject' на ключевые маркеры дистанционного обучения.
+    Корректно распознает как кириллицу (МООК-1, дистанционно), так и латиницу (MOOK, online, zoom).
+    """
+    if not lesson or not isinstance(lesson, dict):
+        return False
+
+    room = str(lesson.get("room") or "").strip().lower()
+    l_type = str(lesson.get("type") or "").strip().lower()
+    subject = str(lesson.get("subject") or "").strip().lower()
+    combined = f"{room} {l_type} {subject}"
+
+    # Основные ключевые подстроки (русский и латиница)
+    patterns = (
+        "моок",     # кириллица: МООК, МООК-1, МООК-2 и т.д.
+        "mook",     # латиница: MOOK, MOOK-1 и т.д.
+        "mooc",     # латиница: Massive Open Online Course
+        "дистанц",  # дистанционное обучение, дистанц.
+        "дистант",  # дистант
+        "онлайн",   # онлайн
+        "online",   # online
+        "zoom",     # Zoom конференции
+        "teams",    # MS Teams
+        "google meet",
+        "webex",
+    )
+    if any(p in combined for p in patterns):
+        return True
+
+    # Проверка аббревиатуры СДО / SDO как отдельного слова
+    if re.search(r'\b(сдо|sdo)\b', combined, re.IGNORECASE):
+        return True
+
+    return False
+
+
 def _format_user_notification(
     current_slot: dict,
     current_lesson: dict,
-    user_slots: list[tuple[dict, dict]]
+    user_slots: list[tuple[dict, dict]],
+    notify_mook: bool = True,
 ) -> str:
     """
     Формирует персональный текст уведомления для студента:
-    - Информацию о завершающейся паре (предмет, тип, аудитория)
-    - Информацию о перемене или об окончании всех пар на сегодня
-    - Информацию о следующей паре (если есть)
+    - Информацию о завершающейся паре (предмет, тип, аудитория / онлайн)
+    - Информацию о перемене или об окончании пар на сегодня
+    - Информацию о следующей паре (с учетом настройки notify_mook)
     """
     slot_num = current_slot["number"]
     start_time = current_slot["start"]
@@ -147,12 +186,7 @@ def _format_user_notification(
     subj = current_lesson.get("subject", "").strip()
     l_type = current_lesson.get("type", "").strip()
     room = current_lesson.get("room", "").strip()
-
-    # Ищем следующую пару для этого студента сегодня
-    subsequent_slots = [
-        (s, it) for s, it in user_slots
-        if s["number"] > slot_num
-    ]
+    curr_is_mook = is_mook_lesson(current_lesson)
 
     lines = [
         f"⏰ <b>До окончания {slot_num}-й пары осталось 5 минут!</b>",
@@ -164,18 +198,42 @@ def _format_user_notification(
         if l_type:
             curr_desc += f" (<i>{l_type}</i>)"
         if room:
-            curr_desc += f" • 📍 Ауд. {room}"
+            if curr_is_mook:
+                curr_desc += f" • 🌐 {room} (дистанционно)"
+            else:
+                curr_desc += f" • 📍 Ауд. {room}"
         lines.append(curr_desc)
 
     lines.append("")
+
+    # Все оставшиеся пары сегодня после текущего слота
+    subsequent_slots = [
+        (s, it) for s, it in user_slots
+        if s["number"] > slot_num
+    ]
 
     if not subsequent_slots:
         # Это была последняя пара для данного студента на сегодня!
         lines.append("🎉 <b>Это была ваша последняя пара на сегодня!</b>")
         lines.append("Отличного отдыха!")
-    else:
-        next_slot, next_lesson = subsequent_slots[0]
-        # Проверяем, идёт ли следующая пара сразу следом или через окно
+        return "\n".join(lines)
+
+    # Если пользователь отключил уведомления о МООК:
+    # проверяем, остались ли очные пары
+    if not notify_mook:
+        next_in_person_slots = [
+            (s, it) for s, it in subsequent_slots
+            if not is_mook_lesson(it)
+        ]
+        if not next_in_person_slots:
+            # Очных пар больше нет! Остались только MOOK (о которых уведомлений не будет)
+            lines.append("🎉 <b>Это была ваша последняя очная пара на сегодня!</b>")
+            lines.append("<i>(Далее по расписанию: дистанционные занятия МООК)</i>")
+            lines.append("Отличного отдыха!")
+            return "\n".join(lines)
+
+        # Есть очная пара впереди
+        next_slot, next_lesson = next_in_person_slots[0]
         if next_slot["number"] == slot_num + 1:
             minutes = current_slot.get("break_duration", 10)
             if minutes == 30:
@@ -185,11 +243,9 @@ def _format_user_notification(
             else:
                 break_line = f"☕ Сейчас будет {minutes}-минутная перемена."
         else:
-            break_line = f"☕ У вас окно! Следующая пара начнётся в <b>{next_slot['start']}</b>."
-
+            break_line = f"☕ У вас окно/перерыв! Следующая очная пара начнётся в <b>{next_slot['start']}</b>."
         lines.append(break_line)
 
-        # Добавляем информацию о следующей паре
         next_subj = next_lesson.get("subject", "").strip()
         next_type = next_lesson.get("type", "").strip()
         next_room = next_lesson.get("room", "").strip()
@@ -198,8 +254,40 @@ def _format_user_notification(
             if next_type:
                 next_desc += f" (<i>{next_type}</i>)"
             if next_room:
-                next_desc += f" • 📍 {next_room}"
+                next_desc += f" • 📍 Ауд. {next_room}"
             lines.append(next_desc)
+        return "\n".join(lines)
+
+    # Если notify_mook == True (уведомления включены для всех пар, включая МООК)
+    next_slot, next_lesson = subsequent_slots[0]
+    next_is_mook = is_mook_lesson(next_lesson)
+
+    if next_slot["number"] == slot_num + 1:
+        minutes = current_slot.get("break_duration", 10)
+        if minutes == 30:
+            break_line = f"🍽️ Сейчас будет {minutes}-минутная перемена (большой перерыв)."
+        elif minutes == 5:
+            break_line = f"⏰ Сейчас будет {minutes}-минутная перемена."
+        else:
+            break_line = f"☕ Сейчас будет {minutes}-минутная перемена."
+    else:
+        break_line = f"☕ У вас окно! Следующая пара начнётся в <b>{next_slot['start']}</b>."
+
+    lines.append(break_line)
+
+    next_subj = next_lesson.get("subject", "").strip()
+    next_type = next_lesson.get("type", "").strip()
+    next_room = next_lesson.get("room", "").strip()
+    if next_subj:
+        next_desc = f"🔜 Следующая пара: <b>{next_subj}</b>"
+        if next_type:
+            next_desc += f" (<i>{next_type}</i>)"
+        if next_room:
+            if next_is_mook:
+                next_desc += f" • 🌐 {next_room} (дистанционно)"
+            else:
+                next_desc += f" • 📍 Ауд. {next_room}"
+        lines.append(next_desc)
 
     return "\n".join(lines)
 
@@ -284,17 +372,16 @@ async def send_notification_task(bot: Bot) -> None:
                 current_lesson = matching_lessons[0]
 
                 # Проверка: является ли пара дистанционной (MOOK)
-                is_mook = any(
-                    "mook" in str(current_lesson.get(field, "")).lower()
-                    for field in ("subject", "type", "room")
-                )
+                is_mook = is_mook_lesson(current_lesson)
                 if is_mook and not notify_mook:
-                    # Пользователь отключил уведомления для MOOK-пар
+                    # Пользователь отключил уведомления для MOOK-пар — не беспокоим его
                     _sent_user_notifications[today_key].add((user_id, slot["number"]))
                     continue
 
                 user_slots = _get_user_slots_today(today_lessons)
-                message_text = _format_user_notification(slot, current_lesson, user_slots)
+                message_text = _format_user_notification(
+                    slot, current_lesson, user_slots, notify_mook=notify_mook
+                )
 
                 # Удаляем предыдущее уведомление об окончании пары, если оно было
                 if last_msg_id:
