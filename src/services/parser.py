@@ -121,14 +121,14 @@ DEFAULT_KEY_DATES = [
         "season": "осенний период"
     },
     {
-        "title": "рубежный контроль №1",
+        "title": "РК №1",
         "start_date": date(2026, 10, 12),
         "end_date": date(2026, 10, 24),
         "period_text": "12.10.2026 - 24.10.2026",
         "season": "осенний период"
     },
     {
-        "title": "рубежный контроль №2",
+        "title": "РК №2",
         "start_date": date(2026, 11, 30),
         "end_date": date(2026, 12, 12),
         "period_text": "30.11.2026 - 12.12.2026",
@@ -156,7 +156,7 @@ DEFAULT_KEY_DATES = [
         "season": ""
     },
     {
-        "title": "рубежный контроль №1",
+        "title": "РК №1",
         "start_date": date(2027, 3, 1),
         "end_date": date(2027, 3, 13),
         "period_text": "01.03.2027 - 13.03.2027",
@@ -165,9 +165,53 @@ DEFAULT_KEY_DATES = [
 ]
 
 
+def get_calculated_key_dates(target_date: date | None = None) -> list[dict]:
+    """Возвращает ключевые даты с авто-расчетом оставшегося времени."""
+    today = target_date or get_kz_now().date()
+    current_year = today.year
+    base_year = current_year if today.month >= 8 else current_year - 1
+
+    dates_config = [
+        {"title": "Учебный период (осенний)", "start": date(base_year, 9, 1), "end": date(base_year, 12, 12)},
+        {"title": "РК №1", "start": date(base_year, 10, 12), "end": date(base_year, 10, 24)},
+        {"title": "РК №2", "start": date(base_year, 11, 30), "end": date(base_year, 12, 12)},
+        {"title": "1-я зимняя сессия", "start": date(base_year, 12, 14), "end": date(base_year + 1, 1, 2)},
+        {"title": "Зимние каникулы", "start": date(base_year + 1, 1, 4), "end": date(base_year + 1, 1, 16)},
+    ]
+
+    items = []
+    for item in dates_config:
+        title = item["title"]
+        start_date = item["start"]
+        end_date = item["end"]
+        period_text = f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}"
+
+        if today < start_date:
+            days_left = (start_date - today).days
+            status = f"начнётся через {days_left} {get_days_declension(days_left)}"
+            marker = "🔹"
+        elif start_date <= today <= end_date:
+            days_left = (end_date - today).days
+            status = f"осталось {days_left} {get_days_declension(days_left)}"
+            marker = "🔵"
+        else:
+            status = "завершено"
+            marker = "✅"
+
+        items.append({
+            "title": title,
+            "period": period_text,
+            "period_text": period_text,
+            "status": status,
+            "marker": marker,
+            "days_left": days_left if (today <= end_date) else 0,
+        })
+    return items
+
+
 def parse_key_dates(html_content: str) -> list[dict]:
     """Возвращает список ключевых дат."""
-    return DEFAULT_KEY_DATES
+    return get_calculated_key_dates()
 
 
 def get_days_declension(number: int) -> str:
@@ -419,6 +463,12 @@ def parse_academic_status(html: str) -> dict:
                 else:
                     indicator = _evaluate_academic_indicator(name, val)
 
+                # Для флюорографии оставляем только дату действия
+                if "флюорограф" in name.lower() or "флюрограф" in name.lower():
+                    date_match = re.search(r'(\d{2}[./-]\d{2}[./-]\d{2,4})', val)
+                    if date_match:
+                        val = f"до {date_match.group(1).replace('-', '.').replace('/', '.')}"
+
                 items.append({
                     "name": name,
                     "value": val if val else "Нет данных",
@@ -497,6 +547,11 @@ def parse_academic_status(html: str) -> dict:
 
             val = found_val if found_val else "Нет данных"
             indicator = _evaluate_academic_indicator(display_name, val)
+            if "флюорограф" in display_name.lower() or "флюрограф" in display_name.lower():
+                date_match = re.search(r'(\d{2}[./-]\d{2}[./-]\d{2,4})', val)
+                if date_match:
+                    val = f"до {date_match.group(1).replace('-', '.').replace('/', '.')}"
+
             items.append({
                 "name": display_name,
                 "value": val,
@@ -1094,4 +1149,4 @@ def format_zhurnal_full_chunks(
 
     messages.append("\n".join(current_lines).strip())
     return messages
-
+

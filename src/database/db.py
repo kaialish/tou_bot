@@ -15,12 +15,16 @@ DB_NAME = str(DATA_DIR / "users_data.db")
 # 3. Если переменной нет, читаем из файла KEY_FILE на диске (для обратной совместимости)
 # 4. Если файла нет, генерируем новый и пробуем сохранить
 env_secret_key = os.getenv("SECRET_KEY", "").strip()
+
 if not env_secret_key and sys.platform == "win32":
     try:
         import winreg
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment") as rkey:
-            reg_val, _ = winreg.QueryValueEx(rkey, "SECRET_KEY")
-            env_secret_key = str(reg_val).strip()
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment") as reg_key:
+            reg_val, _ = winreg.QueryValueEx(reg_key, "SECRET_KEY")
+            if reg_val:
+                env_secret_key = str(reg_val).strip()
+    except Exception:
+        pass
     except Exception:
         pass
 

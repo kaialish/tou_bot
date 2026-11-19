@@ -28,6 +28,9 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+# URL-адрес для Telegram Mini App (например, https://xxxx.trycloudflare.com)
+WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip()
+
 # Читаем список ID администраторов из .env (через запятую, например: 123456789,987654321)
 raw_admin_ids = os.getenv("ADMIN_IDS", "")
 ADMIN_IDS = [int(i.strip()) for i in raw_admin_ids.split(",") if i.strip().isdigit()]

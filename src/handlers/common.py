@@ -50,7 +50,7 @@ from src.keyboards import (
     get_current_lesson_keyboard,
     get_confirm_delete_keyboard,
 )
-from src.utils import cleanup_previous_album, PRIVACY_POLICY_TEXT, clear_chat_history
+from src.utils import cleanup_previous_album, PRIVACY_POLICY_TEXT, clear_chat_history, check_rate_limit, update_rate_limit
 from src.utils.lesson_widget import get_current_lesson_status, format_current_lesson_message
 from src.states import AuthForm
 from src.config import ADMIN_IDS
@@ -167,6 +167,13 @@ async def process_menu_key_dates(callback: CallbackQuery, state: FSMContext):
 
 async def _load_and_render_academic_status(callback: CallbackQuery, state: FSMContext, is_refresh: bool = False):
     """Общий обработчик для загрузки и отображения академического статуса."""
+    if is_refresh:
+        can_refresh, remaining = check_rate_limit(callback.from_user.id, action="status_refresh", cooldown_seconds=60)
+        if not can_refresh:
+            await callback.answer(f"⏳ Слишком частые запросы к ToU. Подождите ещё {remaining} сек.", show_alert=True)
+            return
+        update_rate_limit(callback.from_user.id, action="status_refresh")
+
     await callback.answer("🔄 Загружаем академический статус...")
     await cleanup_previous_album(callback.bot, callback.message.chat.id, state)
 
@@ -304,6 +311,13 @@ async def _load_and_render_grades(
         login, db_pw = creds
         password = password or db_pw
         await state.update_data(login=login, password=password)
+
+    if is_refresh:
+        can_refresh, remaining = check_rate_limit(callback.from_user.id, action="grades_refresh", cooldown_seconds=60)
+        if not can_refresh:
+            await callback.answer(f"⏳ Слишком частые запросы к ToU. Подождите ещё {remaining} сек.", show_alert=True)
+            return
+        update_rate_limit(callback.from_user.id, action="grades_refresh")
 
     await callback.answer()
     courses = None
@@ -491,7 +505,7 @@ async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
         # Если удалить сообщение не удалось, редактируем его в Главное меню
         try:
             await callback.message.edit_text(
-                "🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
+                "🏠 <b>Главное меню ToU Bot</b>\nНажмите кнопку ниже, чтобы открыть приложение:",
                 parse_mode="HTML",
                 reply_markup=get_main_menu_keyboard(is_admin=is_admin)
             )
@@ -502,7 +516,7 @@ async def process_back_to_main_menu(callback: CallbackQuery, state: FSMContext):
 
     main_msg = await callback.bot.send_message(
         chat_id=chat_id,
-        text="🏠 <b>Главное меню</b>\nВыберите нужный раздел:",
+        text="🎓 <b>Добро пожаловать в ToUBot!</b>\n\nНажмите по кнопке ниже для перехода в приложение:",
         parse_mode="HTML",
         reply_markup=get_main_menu_keyboard(is_admin=is_admin)
     )
