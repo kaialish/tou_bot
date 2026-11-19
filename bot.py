@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -19,6 +20,7 @@ from src.services import (
     notify_admin_shutdown,
     notify_admin_error,
 )
+from src.webapp_server import start_server as start_webapp_server
 
 logging.basicConfig(
     level=logging.INFO,
@@ -147,9 +149,15 @@ async def main():
         BotCommand(command="admin", description="Панель администратора"),
     ])
 
+    # Запускаем Mini App веб-сервер параллельно с ботом
+    port = int(os.getenv("PORT", "8080"))
+    webapp_runner = await start_webapp_server(host="0.0.0.0", port=port)
+    logging.info(f"Mini App веб-сервер запущен на порту {port}")
+
     try:
         await dp.start_polling(bot)
     finally:
+        await webapp_runner.cleanup()
         await on_shutdown()
 
 
