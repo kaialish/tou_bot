@@ -40,6 +40,7 @@ from src.services.parser import (
 )
 from src.services.tou_client import get_schedule_html, get_zhurnal_html, get_dashboard_html
 from src.utils.lesson_widget import get_current_lesson_status
+from src.utils.rate_limit import check_rate_limit, update_rate_limit
 
 WEBAPP_DIR = PROJECT_ROOT / "webapp"
 
@@ -412,7 +413,7 @@ async def handle_student_data(request: web.Request) -> web.Response:
 
 
 async def handle_refresh(request: web.Request) -> web.Response:
-    """Принудительно обновляет данные с портала ToU и сохраняет в БД."""
+    """Принудительно обновляет данные с портала ToU и сохраняет в БД с защитой от спам-запросов (Rate Limit)."""
     user_id_param = request.query.get("user_id", "")
     is_demo = request.query.get("demo", "") == "1" or user_id_param == "demo"
 
@@ -421,9 +422,18 @@ async def handle_refresh(request: web.Request) -> web.Response:
 
     user_id = int(user_id_param)
 
+    # Защита от избыточных запросов (кулдаун 60 секунд)
+    can_refresh, _ = check_rate_limit(user_id, action="webapp_refresh", cooldown_seconds=60)
+    if not can_refresh:
+        # Если кулдаун ещё активен, не перегружаем портал ToU — мгновенно отдаем текущий кэш
+        return await handle_student_data(request)
+
     creds = await get_user_credentials(user_id)
     if not creds:
         return web.json_response({"status": "error", "message": "Студент не авторизован в боте"})
+
+    # Фиксируем сетевой запрос
+    update_rate_limit(user_id, action="webapp_refresh")
 
     login, password = creds
     now_str = get_kz_now().strftime("%d.%m.%Y в %H:%M")

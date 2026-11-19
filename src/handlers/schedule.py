@@ -23,7 +23,7 @@ from src.services import (
     format_schedule_text,
 )
 from src.keyboards import get_schedule_keyboard
-from src.utils import cleanup_previous_album
+from src.utils import cleanup_previous_album, check_rate_limit, update_rate_limit
 
 router = Router()
 
@@ -344,6 +344,12 @@ async def process_refresh_schedule(callback: CallbackQuery, state: FSMContext):
             await callback.answer("Сессия истекла. Нажмите /start заново.", show_alert=True)
             return
 
+    can_refresh, remaining = check_rate_limit(callback.from_user.id, action="schedule_refresh", cooldown_seconds=60)
+    if not can_refresh:
+        await callback.answer(f"⏳ Слишком частые запросы к ToU. Подождите ещё {remaining} сек.", show_alert=True)
+        return
+
+    update_rate_limit(callback.from_user.id, action="schedule_refresh")
     await callback.answer("🔄 Проверяем портал ToU...")
     success, html_or_err = await get_schedule_html(login, password, bot=callback.bot)
 
