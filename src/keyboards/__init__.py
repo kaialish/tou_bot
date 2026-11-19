@@ -10,6 +10,8 @@ from .inline import (
     get_privacy_policy_keyboard,
     get_current_lesson_keyboard,
     get_demo_keyboard,
+    get_storage_mode_keyboard,
+    get_confirm_delete_keyboard,
 )
 
 __all__ = [
@@ -24,4 +26,6 @@ __all__ = [
     "get_privacy_policy_keyboard",
     "get_current_lesson_keyboard",
     "get_demo_keyboard",
+    "get_storage_mode_keyboard",
+    "get_confirm_delete_keyboard",
 ]
