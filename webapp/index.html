@@ -62,8 +62,9 @@
   <!-- ==================== ВЕРХНЯЯ ШАПКА ==================== -->
   <header class="sticky top-0 z-30 px-4 pt-3 pb-2 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 flex items-center justify-between">
     <div class="flex items-center space-x-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-        <span class="text-xl">🎓</span>
+      <div id="headerAvatarContainer" class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 overflow-hidden relative border border-emerald-400/30">
+        <img id="headerAvatarImg" src="" alt="Avatar" class="w-full h-full object-cover hidden" />
+        <span id="headerAvatarFallback" class="text-xl select-none">🎓</span>
       </div>
       <div>
         <div class="flex items-center space-x-1.5">
@@ -185,10 +186,75 @@
       </div>
     </section>
 
+    <!-- ТАБ 4: ПАНЕЛЬ АДМИНИСТРАТОРА (Только для ADMIN_IDS) -->
+    <section id="tabAdmin" class="tab-content space-y-4 hidden">
+      <!-- Заголовок панели -->
+      <div class="flex items-center justify-between px-1">
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Панель управления ToU</h2>
+          <p class="text-[11px] text-emerald-400 font-medium">Режим суперпользователя (Админ)</p>
+        </div>
+        <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">ADMIN</span>
+      </div>
+
+      <!-- Метрики пользователей и сервера -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="p-3.5 rounded-2xl glass-card border border-slate-800">
+          <div class="text-[11px] text-slate-400">Студентов в боте</div>
+          <div class="text-2xl font-bold text-white mt-1" id="adminUsersCount">--</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">В базе users_data.db</div>
+        </div>
+        <div class="p-3.5 rounded-2xl glass-card border border-slate-800">
+          <div class="text-[11px] text-slate-400">Техработы</div>
+          <div class="text-xs font-bold mt-1.5" id="adminMaintBadge">
+            <span class="text-emerald-400">🟢 Выключены</span>
+          </div>
+          <button id="adminToggleMaintBtn" class="mt-2 w-full py-1 text-[11px] font-semibold rounded-lg transition-all bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+            Переключить
+          </button>
+        </div>
+      </div>
+
+      <!-- Быстрые действия -->
+      <div class="p-4 rounded-2xl glass-card space-y-3 border border-slate-800">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Быстрые действия</h3>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button id="adminRefreshStatsBtn" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/70 text-left transition-all">
+            <div class="font-semibold text-white">🔄 Обновить данные</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">Синхронизация метрик</div>
+          </button>
+          <button id="adminPingPortalBtn" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/70 text-left transition-all">
+            <div class="font-semibold text-white">🌐 Проверить ToU</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">tou.edu.kz</div>
+          </button>
+        </div>
+        <div id="adminPortalPingResult" class="hidden text-[11px] p-2 rounded-lg bg-slate-900/80 border border-slate-800 font-mono"></div>
+      </div>
+
+      <!-- Список авторизованных пользователей -->
+      <div class="p-4 rounded-2xl glass-card space-y-2 border border-slate-800">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Авторизованные логины</h3>
+          <span class="text-[10px] text-slate-500" id="adminLoginsTotal">0 чел.</span>
+        </div>
+        <div id="adminLoginsList" class="space-y-1 text-xs text-slate-300 max-h-40 overflow-y-auto pr-1">
+          <div class="text-slate-500 italic text-[11px]">Загрузка списка...</div>
+        </div>
+      </div>
+
+      <!-- Системная информация -->
+      <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/80 text-[11px] text-slate-400 space-y-1.5">
+        <div class="flex justify-between"><span>Время сервера:</span> <span class="font-mono text-slate-200" id="adminServerTime">--:--</span></div>
+        <div class="flex justify-between"><span>Часовой пояс:</span> <span class="font-mono text-slate-200">Asia/Almaty (UTC+5)</span></div>
+        <div class="flex justify-between"><span>Криптография:</span> <span class="font-mono text-emerald-400">Fernet AES-128 (Registry OK)</span></div>
+        <div class="flex justify-between"><span>Rate Limiter:</span> <span class="font-mono text-emerald-400">Active (60s cooldown)</span></div>
+      </div>
+    </section>
+
   </main>
 
   <!-- ==================== НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (TAB BAR) ==================== -->
-  <nav class="fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800/80 px-6 py-2">
+  <nav class="fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800/80 px-4 py-2">
     <div class="max-w-lg mx-auto flex items-center justify-around">
       <button class="nav-tab active flex flex-col items-center space-y-1 text-emerald-400" data-tab="tabSchedule">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,6 +275,15 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
         </svg>
         <span class="text-[10px] font-medium">Статус</span>
+      </button>
+
+      <!-- Кнопка Панели Админа (отображается только для ADMIN_IDS) -->
+      <button id="navTabAdmin" class="nav-tab hidden flex flex-col items-center space-y-1 text-slate-400 hover:text-slate-200" data-tab="tabAdmin">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span class="text-[10px] font-medium">Админ</span>
       </button>
     </div>
   </nav>

@@ -9,7 +9,8 @@ window.MOCK_DATA = {
     status_overall: "В норме",
     current_week: 9,
     is_demo: true,
-    is_offline: false
+    is_offline: false,
+    is_admin: true
   },
   live_widget: {
     status: "in_lesson", // in_lesson, break, before_day, after_day, weekend

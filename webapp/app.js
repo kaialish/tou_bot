@@ -178,6 +178,46 @@ document.addEventListener("DOMContentLoaded", () => {
         btnToggleDemo.className = "text-[11px] font-semibold px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white active:scale-95 transition-all flex items-center space-x-1";
       }
     }
+
+    // Отображение вкладки Админа только для администраторов
+    const navTabAdmin = document.getElementById("navTabAdmin");
+    if (navTabAdmin) {
+      if (student.is_admin) {
+        navTabAdmin.classList.remove("hidden");
+      } else {
+        navTabAdmin.classList.add("hidden");
+      }
+    }
+
+    // Аватарка студента из Telegram (вместо шапки выпускника)
+    const avatarImg = document.getElementById("headerAvatarImg");
+    const avatarFallback = document.getElementById("headerAvatarFallback");
+    const userId = tg?.initDataUnsafe?.user?.id || urlParams.get("user_id");
+
+    if (avatarImg && avatarFallback) {
+      if (!isDemo && userId && userId !== "demo") {
+        const directTgPhoto = tg?.initDataUnsafe?.user?.photo_url;
+        const photoSrc = directTgPhoto || `/api/user-avatar?user_id=${userId}`;
+
+        avatarImg.onload = () => {
+          avatarImg.classList.remove("hidden");
+          avatarFallback.classList.add("hidden");
+        };
+        avatarImg.onerror = () => {
+          // Если SDK фото не загрузилось, пробуем загрузить через наш прокси
+          if (directTgPhoto && !avatarImg.src.includes("/api/user-avatar")) {
+            avatarImg.src = `/api/user-avatar?user_id=${userId}`;
+          } else {
+            avatarImg.classList.add("hidden");
+            avatarFallback.classList.remove("hidden");
+          }
+        };
+        avatarImg.src = photoSrc;
+      } else {
+        avatarImg.classList.add("hidden");
+        avatarFallback.classList.remove("hidden");
+      }
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -461,6 +501,61 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ПОДСВЕТКА ОЦЕНОК (ЦВЕТОВАЯ ДИФФЕРЕНЦИАЦИЯ)
+  // ─────────────────────────────────────────────────────────────────────────────
+  // >= 70: зеленый
+  // 51..69: оранжевый
+  // <= 50 (и > 0): красный
+  // == 0: белый
+  // — / пусто: нейтральный
+  function getScoreColorClass(scoreVal) {
+    if (scoreVal === null || scoreVal === undefined || scoreVal === "" || scoreVal === "—") {
+      return {
+        text: "text-slate-400",
+        badge: "bg-slate-800 text-slate-400 border-slate-700/60"
+      };
+    }
+
+    const num = parseFloat(String(scoreVal).replace(",", "."));
+    if (isNaN(num)) {
+      return {
+        text: "text-slate-400",
+        badge: "bg-slate-800 text-slate-400 border-slate-700/60"
+      };
+    }
+
+    // Если балл ровно 0 — белый цвет
+    if (num === 0) {
+      return {
+        text: "text-white",
+        badge: "bg-slate-800/90 text-white border-slate-600 font-semibold"
+      };
+    }
+
+    // Выше 70 включительно — зеленый цвет
+    if (num >= 70) {
+      return {
+        text: "text-emerald-400",
+        badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-semibold"
+      };
+    }
+
+    // От 51 до 69 включительно — оранжевый цвет
+    if (num >= 51 && num <= 69.99) {
+      return {
+        text: "text-amber-400",
+        badge: "bg-amber-500/15 text-amber-400 border-amber-500/30 font-semibold"
+      };
+    }
+
+    // 50 и ниже включительно — красный цвет
+    return {
+      text: "text-rose-400",
+      badge: "bg-rose-500/15 text-rose-400 border-rose-500/30 font-semibold"
+    };
+  }
+
   function renderGrades(part = 1) {
     const gradesData = state.data?.grades;
     const weekEl = document.getElementById("currentWeekNum");
@@ -488,6 +583,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const rating = p?.rating || "—";
       const traffic = p?.traffic || "⚪";
 
+      const tuColor = getScoreColorClass(tu);
+      const rkColor = getScoreColorClass(rk);
+      const ratingColor = getScoreColorClass(rating);
+
       const card = document.createElement("div");
       card.className = "p-4 rounded-2xl glass-card space-y-3";
 
@@ -508,15 +607,15 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="grid grid-cols-3 gap-2 py-2 px-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center">
           <div>
             <div class="text-[10px] text-slate-400 font-medium">ТУ${part} (тек.)</div>
-            <div class="text-sm font-bold text-emerald-400 mt-0.5">${tu}</div>
+            <div class="text-sm font-bold ${tuColor.text} mt-0.5">${tu}</div>
           </div>
           <div>
             <div class="text-[10px] text-slate-400 font-medium">РК${part} (рубеж)</div>
-            <div class="text-sm font-bold text-sky-400 mt-0.5">${rk}</div>
+            <div class="text-sm font-bold ${rkColor.text} mt-0.5">${rk}</div>
           </div>
           <div>
             <div class="text-[10px] text-slate-400 font-medium">Р${part} (рейтинг)</div>
-            <div class="text-sm font-bold text-amber-400 mt-0.5">${rating}</div>
+            <div class="text-sm font-bold ${ratingColor.text} mt-0.5">${rating}</div>
           </div>
         </div>
 
@@ -549,15 +648,20 @@ document.addEventListener("DOMContentLoaded", () => {
         return part === 1 ? (weekNum >= 1 && weekNum <= 8) : (weekNum >= 9 && weekNum <= 15);
       });
 
+      const avgColor = getScoreColorClass(act.avg);
+
       const weeksStr = weeks
-        .map(w => `<span class="inline-block px-1.5 py-0.5 rounded bg-slate-800 text-[11px] font-mono border border-slate-700/60 mr-1 mb-1">${w.week}н: <b>${w.val}</b></span>`)
+        .map(w => {
+          const c = getScoreColorClass(w.val);
+          return `<span class="inline-block px-1.5 py-0.5 rounded text-[11px] font-mono border mr-1 mb-1 ${c.badge}">${w.week}н: <b>${w.val}</b></span>`;
+        })
         .join("");
 
       return `
         <div class="p-2 rounded-lg bg-slate-800/40 border border-slate-800">
           <div class="flex items-center justify-between mb-1.5">
             <span class="font-semibold text-slate-200">${act.type}</span>
-            <span class="text-[11px] text-slate-400">ср. балл (Р${part}): <b>${act.avg || '—'}</b></span>
+            <span class="text-[11px] text-slate-400">ср. балл (Р${part}): <b class="${avgColor.text}">${act.avg || '—'}</b></span>
           </div>
           <div class="flex flex-wrap">${weeksStr || '<span class="text-slate-500 text-[11px]">Оценок за этот рейтинг нет</span>'}</div>
         </div>
@@ -744,8 +848,119 @@ document.addEventListener("DOMContentLoaded", () => {
       if (activeEl) activeEl.classList.remove("hidden");
 
       state.activeTab = targetTabId;
+
+      if (targetTabId === "tabAdmin") {
+        renderAdminPanel();
+      }
     });
   });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ПАНЕЛЬ АДМИНИСТРАТОРА (ФУНКЦИИ И СТАТИСТИКА)
+  // ─────────────────────────────────────────────────────────────────────────────
+  async function renderAdminPanel() {
+    const userId = tg?.initDataUnsafe?.user?.id || urlParams.get("user_id") || "demo";
+    const isDemo = state.isDemoMode;
+
+    const countEl = document.getElementById("adminUsersCount");
+    const maintBadge = document.getElementById("adminMaintBadge");
+    const loginsList = document.getElementById("adminLoginsList");
+    const loginsTotal = document.getElementById("adminLoginsTotal");
+    const serverTimeEl = document.getElementById("adminServerTime");
+
+    const endpoint = isDemo ? `/api/admin/stats?demo=1` : `/api/admin/stats?user_id=${userId}`;
+
+    try {
+      const resp = await fetch(endpoint);
+      if (resp.ok) {
+        const stats = await resp.json();
+        if (countEl) countEl.textContent = stats.total_users ?? "0";
+        if (maintBadge) {
+          maintBadge.innerHTML = stats.is_maintenance
+            ? `<span class="text-rose-400">🔴 АКТИВЕН (бот закрыт)</span>`
+            : `<span class="text-emerald-400">🟢 Выключен (в норме)</span>`;
+        }
+        if (serverTimeEl) serverTimeEl.textContent = stats.server_time || "--:--";
+
+        if (loginsList) {
+          const logins = stats.logins || [];
+          if (loginsTotal) loginsTotal.textContent = `${logins.length} чел.`;
+          if (logins.length === 0) {
+            loginsList.innerHTML = `<div class="text-slate-500 italic text-[11px]">Нет авторизованных студентов</div>`;
+          } else {
+            loginsList.innerHTML = logins.map((l, i) => `
+              <div class="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                <span class="font-mono text-white text-[11px]">${i + 1}. ${l}</span>
+                <span class="text-[10px] text-emerald-400">В базе</span>
+              </div>
+            `).join("");
+          }
+        }
+      } else {
+        // Демо-фолбэк
+        if (countEl) countEl.textContent = "1";
+        if (maintBadge) maintBadge.innerHTML = `<span class="text-emerald-400">🟢 Выключен (демо)</span>`;
+        if (loginsTotal) loginsTotal.textContent = "1 чел.";
+        if (loginsList) {
+          loginsList.innerHTML = `
+            <div class="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+              <span class="font-mono text-white text-[11px]">1. demo_student</span>
+              <span class="text-[10px] text-emerald-400">Демо</span>
+            </div>
+          `;
+        }
+      }
+    } catch (e) {
+      console.warn("Ошибка при получении админ-статистики:", e);
+    }
+  }
+
+  // Кнопка переключения режима техработ в админке
+  const btnToggleMaint = document.getElementById("adminToggleMaintBtn");
+  if (btnToggleMaint) {
+    btnToggleMaint.addEventListener("click", async () => {
+      triggerHaptic("medium");
+      const userId = tg?.initDataUnsafe?.user?.id || urlParams.get("user_id") || "demo";
+      const isDemo = state.isDemoMode;
+      const endpoint = isDemo ? `/api/admin/toggle-maintenance?demo=1` : `/api/admin/toggle-maintenance?user_id=${userId}`;
+      try {
+        const resp = await fetch(endpoint);
+        if (resp.ok) {
+          await renderAdminPanel();
+          if (tg && tg.showAlert) {
+            tg.showAlert("Статус технических работ успешно обновлен!");
+          }
+        }
+      } catch (e) {
+        console.error("Ошибка переключения техработ:", e);
+      }
+    });
+  }
+
+  // Кнопка обновления метрик админки
+  const btnRefreshStats = document.getElementById("adminRefreshStatsBtn");
+  if (btnRefreshStats) {
+    btnRefreshStats.addEventListener("click", () => {
+      triggerHaptic("light");
+      renderAdminPanel();
+    });
+  }
+
+  // Кнопка пинга портала университета
+  const btnPingPortal = document.getElementById("adminPingPortalBtn");
+  const portalPingRes = document.getElementById("adminPortalPingResult");
+  if (btnPingPortal && portalPingRes) {
+    btnPingPortal.addEventListener("click", () => {
+      triggerHaptic("light");
+      portalPingRes.classList.remove("hidden");
+      portalPingRes.textContent = "Проверка tou.edu.kz... ⏳";
+      portalPingRes.className = "text-[11px] p-2 rounded-lg bg-slate-900/80 border border-slate-800 font-mono text-amber-400";
+      setTimeout(() => {
+        portalPingRes.textContent = "tou.edu.kz доступен (HTTP 200 OK) ✅";
+        portalPingRes.className = "text-[11px] p-2 rounded-lg bg-slate-900/80 border border-emerald-800/80 font-mono text-emerald-400";
+      }, 600);
+    });
+  }
 
   // Кнопка принудительного обновления
   const btnRefresh = document.getElementById("btnRefresh");

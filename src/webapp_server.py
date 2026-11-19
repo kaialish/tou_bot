@@ -7,6 +7,7 @@ import os
 import sys
 import json
 import re
+import time
 from pathlib import Path
 
 # Гарантируем, что корень проекта всегда в sys.path при прямом запуске скрипта
@@ -14,8 +15,9 @@ _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
+import aiohttp
 from aiohttp import web
-from src.config import PROJECT_ROOT, get_kz_now
+from src.config import PROJECT_ROOT, get_kz_now, ADMIN_IDS, BOT_TOKEN
 from src.database import (
     init_db,
     get_user_credentials,
@@ -25,6 +27,9 @@ from src.database import (
     save_cached_zhurnal,
     get_cached_academic_status,
     save_cached_academic_status,
+    get_users_stats,
+    set_maintenance_status,
+    is_maintenance_active,
 )
 from src.services.parser import (
     parse_schedule_items,
@@ -295,6 +300,7 @@ def _build_demo_payload() -> dict:
             "current_week": 9,
             "is_demo": True,
             "is_offline": False,
+            "is_admin": True,
         },
         "live_widget": live_widget,
         "schedule": demo_schedule,
@@ -391,6 +397,8 @@ async def handle_student_data(request: web.Request) -> web.Response:
         # 5. Ключевые даты с рассчитанными днями
         key_dates = parse_key_dates("")
 
+        is_admin = bool(user_id and user_id in ADMIN_IDS)
+
         payload = {
             "student": {
                 "name": login,
@@ -399,6 +407,7 @@ async def handle_student_data(request: web.Request) -> web.Response:
                 "current_week": grades_data.get("current_week", 9),
                 "is_demo": False,
                 "is_offline": False,
+                "is_admin": is_admin,
             },
             "live_widget": live_widget,
             "schedule": schedule_grouped,
@@ -464,6 +473,103 @@ async def handle_index(request: web.Request) -> web.FileResponse:
     return web.FileResponse(WEBAPP_DIR / "index.html")
 
 
+async def handle_admin_stats(request: web.Request) -> web.Response:
+    """Возвращает системную и пользовательскую статистику для админ-панели Mini App."""
+    user_id_param = request.query.get("user_id", "")
+    is_demo = request.query.get("demo", "") == "1" or user_id_param == "demo"
+    user_id = int(user_id_param) if user_id_param.isdigit() else None
+
+    # Доступ разрешен только если пользователь в ADMIN_IDS или в демо-режиме
+    if not is_demo and (not user_id or user_id not in ADMIN_IDS):
+        return web.json_response({"status": "error", "message": "Доступ запрещен"}, status=403)
+
+    count, logins = await get_users_stats()
+    maint = await is_maintenance_active()
+    now_kz = get_kz_now().strftime("%d.%m.%Y в %H:%M:%S")
+
+    return web.json_response({
+        "status": "ok",
+        "total_users": count,
+        "logins": logins,
+        "is_maintenance": maint,
+        "server_time": now_kz,
+        "admin_id": user_id or "demo"
+    })
+
+
+async def handle_admin_toggle_maintenance(request: web.Request) -> web.Response:
+    """Переключает статус технического обслуживания через админ-панель Mini App."""
+    user_id_param = request.query.get("user_id", "")
+    is_demo = request.query.get("demo", "") == "1" or user_id_param == "demo"
+    user_id = int(user_id_param) if user_id_param.isdigit() else None
+
+    if not is_demo and (not user_id or user_id not in ADMIN_IDS):
+        return web.json_response({"status": "error", "message": "Доступ запрещен"}, status=403)
+
+    cur = await is_maintenance_active()
+    new_status = not cur
+    await set_maintenance_status(new_status)
+
+    return web.json_response({
+        "status": "ok",
+        "is_maintenance": new_status,
+        "message": "Режим техобслуживания активирован" if new_status else "Режим техобслуживания отключен"
+    })
+
+
+_AVATAR_CACHE: dict[int, tuple[bytes, str, float]] = {}
+
+
+async def handle_user_avatar(request: web.Request) -> web.Response:
+    """Возвращает текущую аватарку пользователя из Telegram Bot API с кэшированием."""
+    user_id_param = request.query.get("user_id", "")
+    if not user_id_param.isdigit():
+        return web.Response(status=404)
+
+    user_id = int(user_id_param)
+    now = time.time()
+    if user_id in _AVATAR_CACHE and (now - _AVATAR_CACHE[user_id][2] < 3600):
+        data, ctype, _ = _AVATAR_CACHE[user_id]
+        return web.Response(body=data, content_type=ctype)
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUserProfilePhotos?user_id={user_id}&limit=1"
+            async with session.get(url, timeout=5) as r:
+                if r.status != 200:
+                    return web.Response(status=404)
+                resp = await r.json()
+                photos = resp.get("result", {}).get("photos", [])
+                if not photos or not photos[0]:
+                    return web.Response(status=404)
+                # Берем подходящее качество (320x320 или 160x160)
+                photo_item = photos[0][1] if len(photos[0]) > 1 else photos[0][0]
+                file_id = photo_item["file_id"]
+
+            url2 = f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}"
+            async with session.get(url2, timeout=5) as r2:
+                if r2.status != 200:
+                    return web.Response(status=404)
+                resp2 = await r2.json()
+                file_path = resp2.get("result", {}).get("file_path")
+                if not file_path:
+                    return web.Response(status=404)
+
+            file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+            async with session.get(file_url, timeout=5) as r3:
+                if r3.status == 200:
+                    img_data = await r3.read()
+                    ctype = r3.headers.get("Content-Type", "image/jpeg")
+                    if "octet-stream" in ctype or not ctype:
+                        ctype = "image/jpeg"
+                    _AVATAR_CACHE[user_id] = (img_data, ctype, now)
+                    return web.Response(body=img_data, content_type=ctype)
+    except Exception as e:
+        print(f"Ошибка загрузки аватарки для {user_id}: {e}")
+
+    return web.Response(status=404)
+
+
 def create_app() -> web.Application:
     """Создает и настраивает экземпляр aiohttp приложения."""
     app = web.Application()
@@ -472,6 +578,10 @@ def create_app() -> web.Application:
     app.router.add_get("/", handle_index)
     app.router.add_get("/api/student-data", handle_student_data)
     app.router.add_get("/api/refresh", handle_refresh)
+    app.router.add_get("/api/user-avatar", handle_user_avatar)
+    app.router.add_get("/api/admin/stats", handle_admin_stats)
+    app.router.add_post("/api/admin/toggle-maintenance", handle_admin_toggle_maintenance)
+    app.router.add_get("/api/admin/toggle-maintenance", handle_admin_toggle_maintenance)
 
     # Раздача статики (index.html, app.js, mock_data.js)
     app.router.add_static("/static/", path=str(WEBAPP_DIR), name="static")
