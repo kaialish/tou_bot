@@ -164,12 +164,156 @@ def _format_grades_for_api(zhurnal_dict: dict) -> dict:
     }
 
 
+def _build_demo_payload() -> dict:
+    """Формирует реалистичный демонстрационный набор данных для демо-режима."""
+    demo_schedule = {
+        "Понедельник": [
+            {"number": 1, "time": "08:15-09:05", "subject": "Архитектура компьютерных систем", "type": "лек.", "room": "А-7", "teacher": "ст.преп. Самуратов А.Т."},
+            {"number": 2, "time": "09:15-10:05", "subject": "Архитектура компьютерных систем", "type": "пр.", "room": "А-308", "teacher": "ст.преп. Самуратов А.Т."},
+            {"number": 3, "time": "10:15-11:05", "subject": "Иностранный язык (профессиональный)", "type": "пр.", "room": "Б-105", "teacher": "доц. Смагулова Г.К."},
+        ],
+        "Вторник": [
+            {"number": 1, "time": "10:15-11:05", "subject": "Объектно-ориентированное программирование (Java)", "type": "пр./сем.", "room": "А-406", "teacher": "Айтбаева К. Ж."},
+            {"number": 2, "time": "11:15-12:05", "subject": "Объектно-ориентированное программирование (Java)", "type": "пр./сем.", "room": "А-406", "teacher": "Айтбаева К. Ж."},
+            {"number": 3, "time": "12:35-13:25", "subject": "Системы управления базами данных", "type": "пр./сем.", "room": "А-404", "teacher": "Айтбаева К. Ж."},
+            {"number": 4, "time": "13:35-14:25", "subject": "Системы управления базами данных", "type": "лаб.", "room": "А-404", "teacher": "Айтбаева К. Ж."},
+        ],
+        "Среда": [
+            {"number": 1, "time": "08:15-09:05", "subject": "Алгоритмы и структуры данных", "type": "лек.", "room": "А-9", "teacher": "доц. Ахметов Т.С."},
+            {"number": 2, "time": "09:15-10:05", "subject": "Алгоритмы и структуры данных", "type": "пр.", "room": "А-315", "teacher": "преп. Касимова А.А."},
+            {"number": 3, "time": "10:15-11:05", "subject": "Web-разработка и фреймворки", "type": "лек.", "room": "А-7", "teacher": "преп. Муратов Е.Е."},
+        ],
+        "Четверг": [
+            {"number": 1, "time": "09:15-10:05", "subject": "Компьютерные сети", "type": "лек.", "room": "А-7", "teacher": "ст.преп. Самуратов А.Т."},
+            {"number": 2, "time": "10:15-11:05", "subject": "Компьютерные сети", "type": "лаб.", "room": "Б-204", "teacher": "Сейткалиев М.Б."},
+            {"number": 3, "time": "11:15-12:05", "subject": "Операционные системы", "type": "пр.", "room": "А-410", "teacher": "преп. Оспанов Д.К."},
+        ],
+        "Пятница": [
+            {"number": 1, "time": "10:15-11:05", "subject": "Веб-технологии", "type": "лек.", "room": "А-7", "teacher": "преп. Муратов Е.Е."},
+            {"number": 2, "time": "11:15-12:05", "subject": "Веб-технологии", "type": "лаб.", "room": "А-318", "teacher": "преп. Муратов Е.Е."},
+        ],
+    }
+
+    # Рассчитываем динамический live_widget для сегодняшнего дня
+    now_kz = get_kz_now()
+    weekday_idx = now_kz.weekday()
+    day_name = WEEKDAYS[weekday_idx] if weekday_idx < len(WEEKDAYS) else None
+    today_lessons = demo_schedule.get(day_name, []) if day_name else []
+
+    live_status = get_current_lesson_status(today_lessons=today_lessons)
+    user_num = live_status.get("user_lesson_number") or live_status.get("slot", {}).get("number", 0)
+    bell_num = live_status.get("bell_slot_number") or live_status.get("slot", {}).get("number", 0)
+
+    live_widget = {
+        "status": live_status.get("status", "no_lessons_today"),
+        "lesson_number": user_num,
+        "bell_slot_number": bell_num,
+        "start": live_status.get("slot", {}).get("start", ""),
+        "end": live_status.get("slot", {}).get("end", ""),
+        "subject": live_status.get("lesson", {}).get("subject", ""),
+        "type": live_status.get("lesson", {}).get("type", ""),
+        "room": live_status.get("lesson", {}).get("room", ""),
+        "teacher": live_status.get("lesson", {}).get("teacher", ""),
+        "remaining_minutes": live_status.get("remaining_minutes", 0),
+        "break_duration": live_status.get("break_duration", 10),
+        "next_subject": live_status.get("next_lesson", {}).get("subject", "") if live_status.get("next_lesson") else "",
+        "next_room": live_status.get("next_lesson", {}).get("room", "") if live_status.get("next_lesson") else "",
+        "next_lesson_number": live_status.get("next_user_lesson_number") or 0,
+    }
+
+    demo_grades = {
+        "current_week": 9,
+        "courses": [
+            {
+                "title": "Объектно-ориентированное программирование (Java)",
+                "teachers": [{"type": "Практика", "fio": "Айтбаева К. Ж."}],
+                "part1": {
+                    "tu": "88.5", "rk": "90", "rating": "89.2", "traffic": "🟢",
+                    "activities": [
+                        {"type": "Практика", "avg": "88.5", "weeks": [{"week": 1, "val": "85"}, {"week": 2, "val": "90"}, {"week": 3, "val": "88"}, {"week": 5, "val": "91"}]}
+                    ]
+                },
+                "part2": {
+                    "tu": "92.0", "rk": "—", "rating": "—", "traffic": "🟢",
+                    "activities": [
+                        {"type": "Практика", "avg": "92.0", "weeks": [{"week": 9, "val": "92"}]}
+                    ]
+                }
+            },
+            {
+                "title": "Компьютерные сети",
+                "teachers": [{"type": "Лекция", "fio": "Самуратов А. Т."}, {"type": "Лабораторные", "fio": "Сейткалиев М. Б."}],
+                "part1": {
+                    "tu": "84.5", "rk": "85", "rating": "85.0", "traffic": "🟢",
+                    "activities": [
+                        {"type": "Лекции", "avg": "88.0", "weeks": [{"week": 1, "val": "90"}, {"week": 2, "val": "85"}, {"week": 3, "val": "90"}]},
+                        {"type": "Лабораторные", "avg": "81.0", "weeks": [{"week": 1, "val": "80"}, {"week": 2, "val": "82"}]}
+                    ]
+                },
+                "part2": {
+                    "tu": "90.0", "rk": "—", "rating": "—", "traffic": "🟢",
+                    "activities": [
+                        {"type": "Лекции", "avg": "95.0", "weeks": [{"week": 9, "val": "95"}]},
+                        {"type": "Лабораторные", "avg": "85.0", "weeks": [{"week": 9, "val": "85"}]}
+                    ]
+                }
+            },
+            {
+                "title": "Системы управления базами данных",
+                "teachers": [{"type": "Лабораторные", "fio": "Айтбаева К. Ж."}],
+                "part1": {
+                    "tu": "74.0", "rk": "72", "rating": "73.0", "traffic": "🟢",
+                    "activities": [
+                        {"type": "Лабораторные", "avg": "74.0", "weeks": [{"week": 1, "val": "75"}, {"week": 2, "val": "70"}, {"week": 4, "val": "77"}]}
+                    ]
+                },
+                "part2": {
+                    "tu": "68.0", "rk": "—", "rating": "—", "traffic": "🟠",
+                    "activities": [
+                        {"type": "Лабораторные", "avg": "68.0", "weeks": [{"week": 9, "val": "68"}]}
+                    ]
+                }
+            }
+        ]
+    }
+
+    demo_checks = [
+        {"name": "Допуск к экзаменам", "value": "Допущен", "indicator": "positive"},
+        {"name": "Текущая успеваемость", "value": "В норме (выше 50)", "indicator": "positive"},
+        {"name": "Задолженности", "value": "Отсутствуют", "indicator": "positive"},
+        {"name": "Флюорография", "value": "до 25.12.2026", "indicator": "positive"},
+    ]
+
+    key_dates = parse_key_dates("")
+
+    return {
+        "student": {
+            "name": "Демо Студент",
+            "login": "demo_student",
+            "status_overall": "В норме",
+            "current_week": 9,
+            "is_demo": True,
+            "is_offline": False,
+        },
+        "live_widget": live_widget,
+        "schedule": demo_schedule,
+        "grades": demo_grades,
+        "status_checks": demo_checks,
+        "key_dates": key_dates,
+    }
+
+
 async def handle_student_data(request: web.Request) -> web.Response:
     """Возвращает агрегированный JSON с расписанием, статусом и успеваемостью."""
     user_id_param = request.query.get("user_id", "")
+    is_demo = request.query.get("demo", "") == "1" or user_id_param == "demo"
     
     # Пытаемся преобразовать в int Telegram ID
     user_id = int(user_id_param) if user_id_param.isdigit() else None
+
+    # Если запрошен явный демо-режим или user_id отсутствует
+    if is_demo or not user_id:
+        return web.json_response(_build_demo_payload())
 
     # Если передан валидный ID студента в базе данных
     if user_id:
@@ -177,6 +321,10 @@ async def handle_student_data(request: web.Request) -> web.Response:
         cached_zhurnal_res = await get_cached_zhurnal(user_id)
         cached_status_res = await get_cached_academic_status(user_id)
         creds = await get_user_credentials(user_id)
+
+        # Если у пользователя нет сохраненных данных в БД, отдаем демо-версию
+        if not cached_schedule_res and not creds:
+            return web.json_response(_build_demo_payload())
 
         login = creds[0] if creds else f"ID: {user_id}"
 
@@ -188,9 +336,13 @@ async def handle_student_data(request: web.Request) -> web.Response:
         now_lessons = parse_schedule_items(schedule_html, day="today") if schedule_html else []
         live_status = get_current_lesson_status(today_lessons=now_lessons)
 
+        user_lesson_num = live_status.get("user_lesson_number") or live_status.get("slot", {}).get("number", 0)
+        bell_slot_num = live_status.get("bell_slot_number") or live_status.get("slot", {}).get("number", 0)
+
         live_widget = {
             "status": live_status.get("status", "no_lessons_today"),
-            "lesson_number": live_status.get("slot", {}).get("number", 0),
+            "lesson_number": user_lesson_num,  # Порядковый номер пары в персональном расписании студента на сегодня
+            "bell_slot_number": bell_slot_num,  # Номер слота по звонкам университета
             "start": live_status.get("slot", {}).get("start", ""),
             "end": live_status.get("slot", {}).get("end", ""),
             "subject": live_status.get("lesson", {}).get("subject", ""),
@@ -201,6 +353,7 @@ async def handle_student_data(request: web.Request) -> web.Response:
             "break_duration": live_status.get("break_duration", 10),
             "next_subject": live_status.get("next_lesson", {}).get("subject", "") if live_status.get("next_lesson") else "",
             "next_room": live_status.get("next_lesson", {}).get("room", "") if live_status.get("next_lesson") else "",
+            "next_lesson_number": live_status.get("next_user_lesson_number") or 0,
         }
 
         # 3. Успеваемость (Журнал)
@@ -243,6 +396,7 @@ async def handle_student_data(request: web.Request) -> web.Response:
                 "login": login,
                 "status_overall": status_dict.get("status_badge", "В норме"),
                 "current_week": grades_data.get("current_week", 9),
+                "is_demo": False,
                 "is_offline": False,
             },
             "live_widget": live_widget,
@@ -253,17 +407,19 @@ async def handle_student_data(request: web.Request) -> web.Response:
         }
         return web.json_response(payload)
 
-    # Фолбэк на демо-структуру, если пользователь не указан (для локальной отладки в браузере)
-    return web.json_response({"error": "user_id_missing", "message": "Используются демо-данные"})
+    # Резервный фолбэк
+    return web.json_response(_build_demo_payload())
 
 
 async def handle_refresh(request: web.Request) -> web.Response:
     """Принудительно обновляет данные с портала ToU и сохраняет в БД."""
     user_id_param = request.query.get("user_id", "")
-    user_id = int(user_id_param) if user_id_param.isdigit() else None
+    is_demo = request.query.get("demo", "") == "1" or user_id_param == "demo"
 
-    if not user_id:
-        return web.json_response({"status": "error", "message": "ID не найден"})
+    if is_demo or not user_id_param or not user_id_param.isdigit():
+        return web.json_response(_build_demo_payload())
+
+    user_id = int(user_id_param)
 
     creds = await get_user_credentials(user_id)
     if not creds:

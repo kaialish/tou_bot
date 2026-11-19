@@ -4,25 +4,27 @@
  */
 window.MOCK_DATA = {
   student: {
-    name: "Кайрат А.",
-    login: "student_demo",
+    name: "Демо Студент",
+    login: "demo_student",
     status_overall: "В норме",
     current_week: 9,
+    is_demo: true,
     is_offline: false
   },
   live_widget: {
     status: "in_lesson", // in_lesson, break, before_day, after_day, weekend
-    lesson_number: 3,
+    lesson_number: 1,
+    bell_slot_number: 3,
     start: "10:15",
     end: "11:05",
-    subject: "Базы данных",
-    type: "лаб.",
-    room: "А-312",
-    teacher: "Жумадилов А. К.",
+    subject: "Объектно-ориентированное программирование (Java)",
+    type: "пр./сем.",
+    room: "А-406",
+    teacher: "Айтбаева К. Ж.",
     remaining_minutes: 24,
     break_duration: 10,
-    next_subject: "Компьютерные сети",
-    next_room: "Б-204"
+    next_subject: "Объектно-ориентированное программирование (Java)",
+    next_room: "А-406"
   },
   schedule: {
     "Понедельник": [
@@ -31,22 +33,24 @@ window.MOCK_DATA = {
       { number: 3, time: "10:15-11:05", subject: "Иностранный язык (профессиональный)", type: "пр.", room: "Б-105", teacher: "доц. Смагулова Г.К." }
     ],
     "Вторник": [
-      { number: 2, time: "09:15-10:05", subject: "Операционные системы", type: "лек.", room: "А-7", teacher: "проф. Исаев Б.М." },
-      { number: 3, time: "10:15-11:05", subject: "Операционные системы", type: "лаб.", room: "А-410", teacher: "преп. Оспанов Д.К." },
-      { number: 4, time: "11:15-12:05", subject: "Операционные системы", type: "лаб.", room: "А-410", teacher: "преп. Оспанов Д.К." }
+      { number: 1, time: "10:15-11:05", subject: "Объектно-ориентированное программирование (Java)", type: "пр./сем.", room: "А-406", teacher: "Айтбаева К. Ж." },
+      { number: 2, time: "11:15-12:05", subject: "Объектно-ориентированное программирование (Java)", type: "пр./сем.", room: "А-406", teacher: "Айтбаева К. Ж." },
+      { number: 3, time: "12:35-13:25", subject: "Системы управления базами данных", type: "пр./сем.", room: "А-404", teacher: "Айтбаева К. Ж." },
+      { number: 4, time: "13:35-14:25", subject: "Системы управления базами данных", type: "лаб.", room: "А-404", teacher: "Айтбаева К. Ж." }
     ],
     "Среда": [
       { number: 1, time: "08:15-09:05", subject: "Алгоритмы и структуры данных", type: "лек.", room: "А-9", teacher: "доц. Ахметов Т.С." },
-      { number: 2, time: "09:15-10:05", subject: "Алгоритмы и структуры данных", type: "пр.", room: "А-315", teacher: "преп. Касимова А.А." }
+      { number: 2, time: "09:15-10:05", subject: "Алгоритмы и структуры данных", type: "пр.", room: "А-315", teacher: "преп. Касимова А.А." },
+      { number: 3, time: "10:15-11:05", subject: "Web-разработка и фреймворки", type: "лек.", room: "А-7", teacher: "преп. Муратов Е.Е." }
     ],
     "Четверг": [
-      { number: 2, time: "09:15-10:05", subject: "Компьютерные сети", type: "лек.", room: "А-7", teacher: "ст.преп. Самуратов А.Т." },
-      { number: 3, time: "10:15-11:05", subject: "Базы данных", type: "лаб.", room: "А-312", teacher: "Жумадилов А.К." },
-      { number: 4, time: "11:15-12:05", subject: "Компьютерные сети", type: "пр.", room: "Б-204", teacher: "Сейткалиев М.Б." }
+      { number: 1, time: "09:15-10:05", subject: "Компьютерные сети", type: "лек.", room: "А-7", teacher: "ст.преп. Самуратов А.Т." },
+      { number: 2, time: "10:15-11:05", subject: "Компьютерные сети", type: "лаб.", room: "Б-204", teacher: "Сейткалиев М.Б." },
+      { number: 3, time: "11:15-12:05", subject: "Операционные системы", type: "пр.", room: "А-410", teacher: "преп. Оспанов Д.К." }
     ],
     "Пятница": [
-      { number: 3, time: "10:15-11:05", subject: "Веб-технологии", type: "лек.", room: "А-7", teacher: "преп. Муратов Е.Е." },
-      { number: 4, time: "11:15-12:05", subject: "Веб-технологии", type: "лаб.", room: "А-318", teacher: "преп. Муратов Е.Е." }
+      { number: 1, time: "10:15-11:05", subject: "Веб-технологии", type: "лек.", room: "А-7", teacher: "преп. Муратов Е.Е." },
+      { number: 2, time: "11:15-12:05", subject: "Веб-технологии", type: "лаб.", room: "А-318", teacher: "преп. Муратов Е.Е." }
     ]
   },
   grades: {

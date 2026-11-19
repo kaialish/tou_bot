@@ -106,6 +106,8 @@ def get_current_lesson_status(today_lessons: list[dict] | None = None) -> dict:
                 "status": "before_day",
                 "first_slot": first_slot,
                 "first_lesson": first_item,
+                "user_lesson_number": 1,
+                "bell_slot_number": first_slot.get("number", 0),
                 "remaining_minutes": first_start_min - now_minutes,
             }
 
@@ -123,10 +125,15 @@ def get_current_lesson_status(today_lessons: list[dict] | None = None) -> dict:
                     "status": "in_lesson",
                     "slot": slot,
                     "lesson": item,
+                    "user_lesson_number": i + 1,
+                    "bell_slot_number": slot.get("number", 0),
+                    "total_lessons": len(user_slots),
                     "remaining_minutes": s_end - now_minutes,
                     "break_duration": slot.get("break_duration", 0),
                     "next_slot": next_pair[0] if next_pair else None,
                     "next_lesson": next_pair[1] if next_pair else None,
+                    "next_user_lesson_number": (i + 2) if next_pair else None,
+                    "next_bell_slot_number": next_pair[0].get("number", 0) if next_pair else None,
                 }
 
         # 4. Проверяем перемену или окно между парами
@@ -137,12 +144,25 @@ def get_current_lesson_status(today_lessons: list[dict] | None = None) -> dict:
             next_slot, next_item = upcoming_slots[0]
             prev_slot, prev_item = past_slots[-1] if past_slots else (None, None)
             rem = _to_minutes(next_slot["start"]) - now_minutes
+
+            # Находим порядковые номера в расписании пользователя
+            next_user_num = None
+            for idx, (s, it) in enumerate(user_slots, start=1):
+                if s == next_slot and it == next_item:
+                    next_user_num = idx
+                    break
+            prev_user_num = (next_user_num - 1) if (next_user_num and next_user_num > 1) else (len(past_slots) if past_slots else None)
+
             return {
                 "status": "break",
                 "prev_slot": prev_slot,
                 "prev_lesson": prev_item,
+                "prev_user_lesson_number": prev_user_num,
+                "prev_bell_slot_number": prev_slot.get("number", 0) if prev_slot else None,
                 "next_slot": next_slot,
                 "next_lesson": next_item,
+                "next_user_lesson_number": next_user_num,
+                "next_bell_slot_number": next_slot.get("number", 0) if next_slot else None,
                 "remaining_minutes": rem,
             }
 
@@ -222,6 +242,10 @@ def format_current_lesson_message(status_dict: dict) -> str:
         hours, mins = divmod(remaining, 60)
         time_str = f"{hours} ч {mins} мин" if hours else f"{mins} мин"
 
+        user_num = status_dict.get("user_lesson_number") or 1
+        bell_num = slot.get("number") if slot else None
+        bell_hint = f" <i>(звонок №{bell_num})</i>" if (bell_num and bell_num != user_num) else ""
+
         text = (
             "🌅 <b>Занятия ещё не начались</b>\n\n"
             f"⏳ До первой пары: <b>{time_str}</b>\n\n"
@@ -232,7 +256,7 @@ def format_current_lesson_message(status_dict: dict) -> str:
             room = lesson.get("room") or "Не указана"
             teacher = lesson.get("teacher")
             text += (
-                f"📚 <b>Первая пара №{slot['number']}:</b> {subj}{l_type}\n"
+                f"📚 <b>Первая пара №{user_num}:</b>{bell_hint} {subj}{l_type}\n"
                 f"🕐 <b>Время:</b> {slot['start']} – {slot['end']}\n"
                 f"📍 <b>Аудитория:</b> <code>{room}</code>\n"
             )
@@ -240,7 +264,7 @@ def format_current_lesson_message(status_dict: dict) -> str:
                 text += f"👨‍🏫 Преподаватель: <i>{teacher}</i>\n"
         elif slot:
             text += (
-                f"📚 Первая пара: <b>пара №{slot['number']}</b>\n"
+                f"📚 Первая пара: <b>пара №{user_num}</b>{bell_hint}\n"
                 f"🕐 Начало: <b>{slot['start']}</b>\n"
             )
         return text
@@ -248,6 +272,8 @@ def format_current_lesson_message(status_dict: dict) -> str:
     if status == "in_lesson":
         slot = status_dict.get("slot")
         lesson = status_dict.get("lesson")
+        user_num = status_dict.get("user_lesson_number")
+        bell_num = slot.get("number") if slot else None
         remaining = status_dict["remaining_minutes"]
         next_slot = status_dict.get("next_slot")
         next_lesson = status_dict.get("next_lesson")
@@ -256,6 +282,9 @@ def format_current_lesson_message(status_dict: dict) -> str:
         hours, mins = divmod(remaining, 60)
         time_str = f"{hours} ч {mins} мин" if hours else f"{mins} мин"
 
+        num_str = f"№{user_num}" if user_num else (f"№{bell_num}" if bell_num else "")
+        bell_hint = f" <i>(звонок №{bell_num})</i>" if (user_num and bell_num and user_num != bell_num) else ""
+
         text = "📖 <b>Сейчас идёт пара!</b>\n\n"
         if lesson and slot:
             subj = lesson.get("subject", "Предмет не указан")
@@ -263,7 +292,7 @@ def format_current_lesson_message(status_dict: dict) -> str:
             room = lesson.get("room") or "Не указана"
             teacher = lesson.get("teacher")
             text += (
-                f"🔢 <b>Пара №{slot['number']}</b> ({slot['start']} – {slot['end']})\n"
+                f"🔢 <b>Пара {num_str}</b>{bell_hint} ({slot['start']} – {slot['end']})\n"
                 f"📚 <b>Предмет:</b> {subj}{l_type}\n"
                 f"📍 <b>Аудитория:</b> <code>{room}</code>\n"
             )
@@ -272,7 +301,7 @@ def format_current_lesson_message(status_dict: dict) -> str:
             text += f"⏳ До конца пары: <b>{time_str}</b>\n"
         elif slot:
             text += (
-                f"🔢 <b>Пара №{slot['number']}</b>\n"
+                f"🔢 <b>Пара {num_str}</b>{bell_hint}\n"
                 f"🕐 Время: <b>{slot['start']} – {slot['end']}</b>\n"
                 f"⏳ До конца пары: <b>{time_str}</b>\n"
             )
@@ -281,15 +310,22 @@ def format_current_lesson_message(status_dict: dict) -> str:
             n_subj = next_lesson.get("subject", "Следующая пара")
             n_type = f" ({next_lesson['type']})" if next_lesson.get("type") else ""
             n_room = next_lesson.get("room") or "Не указана"
+            next_user_num = status_dict.get("next_user_lesson_number")
+            next_bell_num = next_slot.get("number") if next_slot else None
+            n_num = f"№{next_user_num}" if next_user_num else (f"№{next_bell_num}" if next_bell_num else "")
+            n_bell_hint = f" <i>(звонок №{next_bell_num})</i>" if (next_user_num and next_bell_num and next_user_num != next_bell_num) else ""
             text += (
                 f"\n☕ <b>Перемена:</b> {break_dur} мин\n"
-                f"➡️ <b>Следующая пара №{next_slot['number']}:</b> {n_subj}{n_type}\n"
+                f"➡️ <b>Следующая пара {n_num}:</b>{n_bell_hint} {n_subj}{n_type}\n"
                 f"📍 <b>Куда идти:</b> аудитория <code>{n_room}</code> (в <b>{next_slot['start']}</b>)"
             )
         elif next_slot and break_dur > 0:
+            next_user_num = status_dict.get("next_user_lesson_number")
+            next_bell_num = next_slot.get("number") if next_slot else None
+            n_num = f"№{next_user_num}" if next_user_num else (f"№{next_bell_num}" if next_bell_num else "")
             text += (
                 f"\n☕ <b>Следующая перемена:</b> {break_dur} мин\n"
-                f"📚 Следующая пара: <b>№{next_slot['number']}</b> в <b>{next_slot['start']}</b>"
+                f"📚 Следующая пара: <b>{n_num}</b> в <b>{next_slot['start']}</b>"
             )
         elif not next_slot:
             text += "\n🎉 <b>Это ваша последняя пара на сегодня!</b>"
@@ -305,6 +341,11 @@ def format_current_lesson_message(status_dict: dict) -> str:
         hours, mins = divmod(remaining, 60)
         time_str = f"{hours} ч {mins} мин" if hours else f"{mins} мин"
 
+        next_user_num = status_dict.get("next_user_lesson_number")
+        next_bell_num = next_slot.get("number") if next_slot else None
+        n_num = f"№{next_user_num}" if next_user_num else (f"№{next_bell_num}" if next_bell_num else "")
+        n_bell_hint = f" <i>(звонок №{next_bell_num})</i>" if (next_user_num and next_bell_num and next_user_num != next_bell_num) else ""
+
         text = (
             "☕ <b>Сейчас перемена!</b>\n\n"
             f"⏳ До начала пары: <b>{time_str}</b>\n\n"
@@ -315,7 +356,7 @@ def format_current_lesson_message(status_dict: dict) -> str:
             n_room = next_lesson.get("room") or "Не указана"
             n_teacher = next_lesson.get("teacher")
             text += (
-                f"📚 <b>Следующая пара №{next_slot['number']}:</b> {n_subj}{n_type}\n"
+                f"📚 <b>Следующая пара {n_num}:</b>{n_bell_hint} {n_subj}{n_type}\n"
                 f"🕐 <b>Время:</b> <b>{next_slot['start']}</b> – {next_slot['end']}\n"
                 f"📍 <b>Куда идти:</b> аудитория <code>{n_room}</code>\n"
             )
@@ -323,12 +364,15 @@ def format_current_lesson_message(status_dict: dict) -> str:
                 text += f"👨‍🏫 Преподаватель: <i>{n_teacher}</i>\n"
         elif next_slot:
             text += (
-                f"📚 <b>Следующая пара №{next_slot['number']}</b>\n"
+                f"📚 <b>Следующая пара {n_num}:</b>{n_bell_hint}\n"
                 f"🕐 Начало: <b>{next_slot['start']}</b> – <b>{next_slot['end']}</b>\n"
             )
 
+        prev_user_num = status_dict.get("prev_user_lesson_number")
+        prev_bell_num = prev_slot.get("number") if prev_slot else None
+        p_num = f"№{prev_user_num}" if prev_user_num else (f"№{prev_bell_num}" if prev_bell_num else "")
         if prev_slot:
-            text += f"\n<i>(Пара №{prev_slot['number']} завершилась)</i>"
+            text += f"\n<i>(Пара {p_num} завершилась)</i>"
 
         return text
 

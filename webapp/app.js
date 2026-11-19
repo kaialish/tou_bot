@@ -22,8 +22,14 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // 2. Внутреннее состояние приложения
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialUserId = tg?.initDataUnsafe?.user?.id || urlParams.get("user_id") || "demo";
+  const initialIsDemo = urlParams.get("demo") === "1" || initialUserId === "demo";
+
   const state = {
     data: window.MOCK_DATA, // По умолчанию демо-данные, пока не загружены реальные
+    realData: null,         // Кэш реальных данных
+    isDemoMode: initialIsDemo,
     activeTab: "tabSchedule",
     selectedDay: getTodayWeekdayName(),
     selectedGradesPart: 1, // 1 или 2 рейтинг
@@ -51,29 +57,53 @@ document.addEventListener("DOMContentLoaded", () => {
     return days[todayIndex] === dayName;
   }
 
-  // 4. Загрузка данных с бэкенда (с фолбэком на демо-данные)
-  async function loadData(forceRefresh = false) {
+  // 4. Загрузка данных с бэкенда (с поддержкой демо-режима и фолбэка)
+  async function loadData(forceRefresh = false, switchMode = null) {
     const refreshIcon = document.getElementById("refreshIcon");
     if (refreshIcon) refreshIcon.classList.add("animate-spin");
 
+    if (switchMode !== null) {
+      state.isDemoMode = switchMode;
+    }
+
     try {
-      // Пытаемся получить user_id из Telegram WebApp
-      const userId = tg?.initDataUnsafe?.user?.id || new URLSearchParams(window.location.search).get("user_id") || "demo";
-      
-      const endpoint = forceRefresh ? `/api/refresh?user_id=${userId}` : `/api/student-data?user_id=${userId}`;
-      const response = await fetch(endpoint);
-      
-      if (response.ok) {
-        const json = await response.json();
-        if (json && json.schedule) {
-          state.data = json;
-          console.log("Данные успешно загружены с бэкенда:", json);
+      const userId = tg?.initDataUnsafe?.user?.id || urlParams.get("user_id") || "demo";
+
+      // 1. Демо-режим
+      if (state.isDemoMode) {
+        const endpoint = `/api/student-data?demo=1`;
+        const response = await fetch(endpoint);
+        if (response.ok) {
+          const json = await response.json();
+          if (json && json.schedule) {
+            state.data = json;
+          }
+        } else if (window.MOCK_DATA) {
+          state.data = window.MOCK_DATA;
         }
       } else {
-        console.warn("Бэкенд вернул статус", response.status, "— используем локальные данные");
+        // 2. Режим реального аккаунта
+        const endpoint = forceRefresh ? `/api/refresh?user_id=${userId}` : `/api/student-data?user_id=${userId}`;
+        const response = await fetch(endpoint);
+        if (response.ok) {
+          const json = await response.json();
+          if (json && json.schedule) {
+            state.data = json;
+            state.realData = json;
+            if (json.student?.is_demo) {
+              state.isDemoMode = true;
+            }
+          }
+        } else {
+          console.warn("Бэкенд вернул статус", response.status, "— переключаемся в демо-режим");
+          state.isDemoMode = true;
+          if (window.MOCK_DATA) state.data = window.MOCK_DATA;
+        }
       }
     } catch (err) {
-      console.info("Сервер API не отвечает, работаем в демо/оффлайн режиме:", err);
+      console.info("Сервер API не отвечает, работаем в демо-режиме:", err);
+      state.isDemoMode = true;
+      if (window.MOCK_DATA) state.data = window.MOCK_DATA;
     } finally {
       if (refreshIcon) {
         setTimeout(() => refreshIcon.classList.remove("animate-spin"), 500);
@@ -100,18 +130,52 @@ document.addEventListener("DOMContentLoaded", () => {
     const nameEl = document.getElementById("headerStudentName");
     const subEl = document.getElementById("headerSubtext");
     const offlineBadge = document.getElementById("offlineBadge");
+    const demoBadge = document.getElementById("demoBadge");
+    const demoNoticeBanner = document.getElementById("demoNoticeBanner");
+    const demoBtnLabel = document.getElementById("demoBtnLabel");
+    const btnToggleDemo = document.getElementById("btnToggleDemo");
+
+    const isDemo = state.isDemoMode || student.is_demo;
 
     if (nameEl) {
-      nameEl.textContent = student.name || tg?.initDataUnsafe?.user?.first_name || "Студент ToU";
+      nameEl.textContent = isDemo
+        ? "Демо Студент"
+        : (student.name || tg?.initDataUnsafe?.user?.first_name || "Студент ToU");
     }
     if (subEl) {
-      subEl.textContent = student.login ? `Логин: ${student.login}` : "Торайгыров Университет";
+      subEl.textContent = isDemo
+        ? "Торайгыров Университет (Демо-режим)"
+        : (student.login ? `Логин: ${student.login}` : "Торайгыров Университет");
     }
     if (offlineBadge) {
-      if (student.is_offline) {
+      if (student.is_offline && !isDemo) {
         offlineBadge.classList.remove("hidden");
       } else {
         offlineBadge.classList.add("hidden");
+      }
+    }
+    if (demoBadge) {
+      if (isDemo) {
+        demoBadge.classList.remove("hidden");
+      } else {
+        demoBadge.classList.add("hidden");
+      }
+    }
+    if (demoNoticeBanner) {
+      if (isDemo) {
+        demoNoticeBanner.classList.remove("hidden");
+      } else {
+        demoNoticeBanner.classList.add("hidden");
+      }
+    }
+    if (demoBtnLabel) {
+      demoBtnLabel.textContent = isDemo ? "Мой вход" : "Демо";
+    }
+    if (btnToggleDemo) {
+      if (isDemo) {
+        btnToggleDemo.className = "text-[11px] font-semibold px-2.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 active:scale-95 transition-all flex items-center space-x-1";
+      } else {
+        btnToggleDemo.className = "text-[11px] font-semibold px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white active:scale-95 transition-all flex items-center space-x-1";
       }
     }
   }
@@ -249,7 +313,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Проверяем, является ли просматриваемый день реальным сегодняшним учебным днём
+    // Проверяем, является ли просматриваемый день сегодняшним учебным днём
     const isActuallyToday = isRealCurrentDay(dayName);
     const live = state.data?.live_widget;
 
@@ -257,34 +321,45 @@ document.addEventListener("DOMContentLoaded", () => {
     const now = new Date();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
-    lessons.forEach((l) => {
-      const typeBadgeClass = getTypeBadgeClass(l.type);
+    // СТРОГОЕ ОПРЕДЕЛЕНИЕ ТЕКУЩЕЙ ПАРЫ:
+    // Должна подсвечиваться РОВНО ОДНА пара в расписании студента (или 0, если перемена/пары окончены)
+    let activeLessonNumber = null;
 
-      // СТРОГАЯ ПРОВЕРКА: подсвечивается ТОЛЬКО та пара, которая идёт прямо сейчас
-      let isCurrent = false;
-
-      if (isActuallyToday) {
-        // 1. Сверка по статусу live_widget от бэкенда
-        if (live && live.status === "in_lesson") {
-          if (live.lesson_number && l.number && live.lesson_number === l.number) {
-            isCurrent = true;
-          } else if (live.start && l.time && l.time.replace(/\s+/g, "").includes(live.start)) {
-            isCurrent = true;
-          }
-        }
-
-        // 2. Дополнительная сверка по текущему времени на часах (интервал звонка пары)
-        if (!isCurrent && l.time) {
+    if (isActuallyToday) {
+      // 1. По текущему времени на часах устройства: пара идёт, если startMin <= nowMinutes < endMin
+      for (const l of lessons) {
+        if (l.time) {
           const timeMatch = l.time.match(/(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})/);
           if (timeMatch) {
             const startMin = parseInt(timeMatch[1], 10) * 60 + parseInt(timeMatch[2], 10);
             const endMin = parseInt(timeMatch[3], 10) * 60 + parseInt(timeMatch[4], 10);
             if (nowMinutes >= startMin && nowMinutes < endMin) {
-              isCurrent = true;
+              activeLessonNumber = l.number;
+              break;
             }
           }
         }
       }
+
+      // 2. Резервная сверка: если по минутам устройства не попали, но серверный live_widget сообщает in_lesson,
+      // сопоставляем строго по совпадению времени начала пары (например "10:15")
+      if (activeLessonNumber === null && live && live.status === "in_lesson" && live.start) {
+        const liveStartClean = live.start.replace(/\s+/g, "");
+        for (const l of lessons) {
+          const lTimeClean = (l.time || "").replace(/\s+/g, "");
+          if (lTimeClean.includes(liveStartClean)) {
+            activeLessonNumber = l.number;
+            break;
+          }
+        }
+      }
+    }
+
+    lessons.forEach((l) => {
+      const typeBadgeClass = getTypeBadgeClass(l.type);
+
+      // Пара подсвечивается ТОЛЬКО если её номер совпал с найденной единственной активной парой
+      const isCurrent = (activeLessonNumber !== null) && (l.number === activeLessonNumber);
 
       const card = document.createElement("div");
       card.className = `p-3.5 rounded-xl border transition-all ${
@@ -680,6 +755,48 @@ document.addEventListener("DOMContentLoaded", () => {
       loadData(true);
     });
   }
+
+  // Кнопка переключения Demo / Реальный аккаунт
+  const btnToggleDemo = document.getElementById("btnToggleDemo");
+  if (btnToggleDemo) {
+    btnToggleDemo.addEventListener("click", () => {
+      triggerHaptic("medium");
+      if (state.isDemoMode) {
+        // Переключение из демо в реальный аккаунт
+        const currentUserId = tg?.initDataUnsafe?.user?.id || urlParams.get("user_id");
+        if (currentUserId && currentUserId !== "demo") {
+          loadData(false, false);
+        } else {
+          // Если зашли без параметров Telegram-пользователя
+          if (tg && tg.showAlert) {
+            tg.showAlert("Вы в демо-режиме! Чтобы подключить своё реальное расписание и оценки, откройте бота @tou_bot и отправьте /start.");
+          } else {
+            alert("Вы в демо-режиме! Для личного расписания авторизуйтесь в Telegram боте через /start.");
+          }
+        }
+      } else {
+        // Переключение в демонстрационный режим для тестирования
+        loadData(false, true);
+      }
+    });
+  }
+
+  // Закрытие информационной плашки демо-режима
+  const btnCloseDemoBanner = document.getElementById("btnCloseDemoBanner");
+  if (btnCloseDemoBanner) {
+    btnCloseDemoBanner.addEventListener("click", () => {
+      triggerHaptic("light");
+      const banner = document.getElementById("demoNoticeBanner");
+      if (banner) banner.classList.add("hidden");
+    });
+  }
+
+  // Автоматический пересчёт текущей пары каждую минуту
+  setInterval(() => {
+    if (state.activeTab === "tabSchedule") {
+      renderLessons(state.selectedDay);
+    }
+  }, 60000);
 
   // Первый запуск
   loadData();

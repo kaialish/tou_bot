@@ -1,9 +1,9 @@
 from datetime import datetime
-from src.config import get_kz_now
+from src.config import get_kz_now, WEBAPP_URL
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import (
-    Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+    Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 )
 from aiogram.fsm.context import FSMContext
 
@@ -12,12 +12,27 @@ from src.database import (
     save_cached_schedule, get_cached_schedule
 )
 from src.services import get_schedule_html
-from src.keyboards import get_disclaimer_keyboard, get_main_menu_keyboard
+from src.keyboards import get_disclaimer_keyboard, get_main_menu_keyboard, get_demo_keyboard
 from src.states import AuthForm
 from src.utils import DISCLAIMER_TEXT
 from src.config import ADMIN_IDS
 
 router = Router()
+
+
+@router.message(Command("demo"))
+async def cmd_demo(message: Message):
+    """Команда /demo — запуск демо-версии Mini App без ввода логина и пароля."""
+    text = (
+        "🎮 <b>Демо-версия ToU Mini App</b>\n\n"
+        "Вы можете протестировать весь интерфейс и возможности приложения без ввода реального логина и пароля:\n\n"
+        "• 📅 Интерактивное расписание на всю неделю\n"
+        "• ⚡ Виджет «Текущая пара» в реальном времени\n"
+        "• 📊 Журнал успеваемости (1 и 2 рейтинг) с расчётом ТУ\n"
+        "• 🛡️ Академический статус, допуск и ключевые даты\n\n"
+        "Нажмите кнопку ниже для запуска демо:"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=get_demo_keyboard())
 
 
 @router.message(CommandStart())
@@ -27,13 +42,16 @@ async def cmd_start(message: Message, state: FSMContext):
 
     if saved_data:
         saved_login, _ = saved_data
+        app_url = WEBAPP_URL if WEBAPP_URL else "https://tou.edu.kz"
+        demo_url = f"{app_url}?demo=1" if "?" not in app_url else f"{app_url}&demo=1"
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"🔑 Войти как {saved_login}", callback_data="quick_login")],
-            [InlineKeyboardButton(text="✏️ Ввести другой логин", callback_data="manual_login")]
+            [InlineKeyboardButton(text="✏️ Ввести другой логин", callback_data="manual_login")],
+            [InlineKeyboardButton(text="🎮 Демо-режим (тестовые данные)", web_app=WebAppInfo(url=demo_url))],
         ])
         await message.answer("С возвращением! Войти под сохраненным аккаунтом?", reply_markup=kb)
     else:
-        # Показываем дисклеймер перед первичным вводом
+        # Показываем дисклеймер с кнопкой входа и демо-режима
         await message.answer(DISCLAIMER_TEXT, parse_mode="HTML", reply_markup=get_disclaimer_keyboard())
         await state.set_state(AuthForm.waiting_for_disclaimer_accept)
 

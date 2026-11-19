@@ -3,13 +3,15 @@ from src.config import WEBAPP_URL
 
 
 def get_main_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    """Главное меню бота: кнопка перехода в Mini App и настройки."""
+    """Главное меню бота: кнопка перехода в Mini App, демо и настройки."""
     app_url = WEBAPP_URL if WEBAPP_URL else "https://tou.edu.kz"
+    demo_url = f"{app_url}?demo=1" if "?" not in app_url else f"{app_url}&demo=1"
     keyboard = [
         [
             InlineKeyboardButton(text="📱 Открыть ToU Mini App", web_app=WebAppInfo(url=app_url)),
         ],
         [
+            InlineKeyboardButton(text="🎮 Демо-версия", web_app=WebAppInfo(url=demo_url)),
             InlineKeyboardButton(text="⚙️ Настройки", callback_data="menu_settings"),
         ],
     ]
@@ -168,11 +170,32 @@ def get_notifications_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_disclaimer_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура с кнопкой принятия условий."""
+    """Клавиатура с кнопкой принятия условий и входом в демо-версию."""
+    app_url = WEBAPP_URL if WEBAPP_URL else "https://tou.edu.kz"
+    demo_url = f"{app_url}?demo=1" if "?" not in app_url else f"{app_url}&demo=1"
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="✅ Принять и продолжить", callback_data="accept_disclaimer"),
+                InlineKeyboardButton(text="✅ Принять и авторизоваться", callback_data="accept_disclaimer"),
+            ],
+            [
+                InlineKeyboardButton(text="🎮 Демо-режим (протестировать без входа)", web_app=WebAppInfo(url=demo_url)),
+            ]
+        ]
+    )
+
+
+def get_demo_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура для прямого открытия демо-версии Mini App."""
+    app_url = WEBAPP_URL if WEBAPP_URL else "https://tou.edu.kz"
+    demo_url = f"{app_url}?demo=1" if "?" not in app_url else f"{app_url}&demo=1"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📱 Открыть ToU Mini App (Демо)", web_app=WebAppInfo(url=demo_url)),
+            ],
+            [
+                InlineKeyboardButton(text="🔑 Войти в свой аккаунт ToU", callback_data="accept_disclaimer"),
             ]
         ]
     )
