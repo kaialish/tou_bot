@@ -1181,6 +1181,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Ссылка на GitHub в модальном окне политики
+  const privacyGithubLink = document.getElementById("privacyGithubLink");
+  if (privacyGithubLink) {
+    privacyGithubLink.addEventListener("click", (e) => {
+      triggerHaptic("light");
+      const githubUrl = "https://github.com/kaialish/tou_bot";
+      if (tg?.openLink) {
+        e.preventDefault();
+        tg.openLink(githubUrl);
+      }
+    });
+  }
+
   // Удаление аккаунта
   const btnDeleteAccount = document.getElementById("btnDeleteAccount");
   if (btnDeleteAccount) {
