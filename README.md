@@ -176,30 +176,6 @@ python download_cloudflared.py
 ```
 *(Скопируйте выданный `https://xxxx.trycloudflare.com` в переменную `WEBAPP_URL`).*
 
----
-
-## ☁️ Развертывание на Railway (Production)
-
-Благодаря архитектуре объединённого процесса `bot.py` бот и сервер Mini App разворачиваются **в один сервис**:
-
-1. **Создайте проект** на [Railway](https://railway.app) и подключите GitHub-репозиторий (ветка `kaialish.branch` или `main`).
-2. **Добавьте постоянный диск (Persistent Volume)**:
-   - Вкладка **Volumes** → **+ New Volume** → Mount Path: `/app/data`.
-3. **Настройте переменные (Variables)**:
-   - `BOT_TOKEN`
-   - `SECRET_KEY`
-   - `ADMIN_IDS`
-   - `TZ=Asia/Almaty`
-   - `DATA_DIR=/app/data`
-   - `WEBAPP_URL=https://toubot-production.up.railway.app`
-4. **Сгенерируйте публичный домен**:
-   - Вкладка **Settings** → **Networking** → **Generate Domain** (порт `8080`).
-5. **Настройте кнопку Menu Button в @BotFather**:
-   - `/mybots` → Выберите вашего бота → **Bot Settings** → **Menu Button** → **Configure menu button**.
-   - URL: `https://toubot-production.up.railway.app`
-   - Название кнопки: `📱 ToU App`
-
----
 
 ## 🤖 Команды бота
 
