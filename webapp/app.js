@@ -131,8 +131,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const nameEl = document.getElementById("headerStudentName");
     const subEl = document.getElementById("headerSubtext");
     const offlineBadge = document.getElementById("offlineBadge");
-    const demoBadge = document.getElementById("demoBadge");
     const demoNoticeBanner = document.getElementById("demoNoticeBanner");
+    const demoIcon = document.getElementById("demoIcon");
     const demoBtnLabel = document.getElementById("demoBtnLabel");
     const btnToggleDemo = document.getElementById("btnToggleDemo");
 
@@ -155,13 +155,6 @@ document.addEventListener("DOMContentLoaded", () => {
         offlineBadge.classList.add("hidden");
       }
     }
-    if (demoBadge) {
-      if (isDemo) {
-        demoBadge.classList.remove("hidden");
-      } else {
-        demoBadge.classList.add("hidden");
-      }
-    }
     if (demoNoticeBanner) {
       if (isDemo) {
         demoNoticeBanner.classList.remove("hidden");
@@ -169,10 +162,14 @@ document.addEventListener("DOMContentLoaded", () => {
         demoNoticeBanner.classList.add("hidden");
       }
     }
+    if (demoIcon) {
+      demoIcon.textContent = isDemo ? "👤" : "🎮";
+    }
     if (demoBtnLabel) {
-      demoBtnLabel.textContent = isDemo ? "Мой вход" : "Демо";
+      demoBtnLabel.textContent = isDemo ? "Вход" : "Демо";
     }
     if (btnToggleDemo) {
+      btnToggleDemo.title = isDemo ? "Войти в свой аккаунт" : "Переключить в демо-режим";
       if (isDemo) {
         btnToggleDemo.className = "text-[11px] font-semibold px-2.5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 active:scale-95 transition-all flex items-center space-x-1";
       } else {
