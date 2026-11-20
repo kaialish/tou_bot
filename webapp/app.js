@@ -1059,6 +1059,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyTheme(themeId) {
     if (!THEMES[themeId]) themeId = "emerald";
     document.documentElement.setAttribute("data-theme", themeId);
+    if (document.body) {
+      document.body.setAttribute("data-theme", themeId);
+    }
     try {
       localStorage.setItem("tou_app_theme", themeId);
     } catch (e) {}
@@ -1068,6 +1071,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.querySelectorAll(".theme-choice-btn").forEach((btn) => {
       const tid = btn.getAttribute("data-theme-btn");
+      if (!tid || !THEMES[tid]) return;
       const circle = btn.querySelector("span:first-child");
       const label = btn.querySelector("span:last-child");
       const check = btn.querySelector(".theme-check-icon");
@@ -1092,20 +1096,40 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       if (label) {
-        label.className = `text-[10px] font-medium ${isCurrent ? "text-white font-bold" : "text-slate-400"}`;
+        label.className = `pointer-events-none text-[10px] font-medium ${isCurrent ? "text-white font-bold" : "text-slate-400"}`;
       }
       if (check) {
         check.classList.toggle("hidden", !isCurrent);
       }
     });
+
+    // Мгновенное обновление динамических компонентов интерфейса
+    try {
+      if (typeof renderWeekDaySelector === "function") renderWeekDaySelector();
+      if (typeof renderLiveWidget === "function") renderLiveWidget();
+      if (typeof renderLessons === "function" && state?.selectedDay) renderLessons(state.selectedDay);
+      if (typeof updateGradesPartButtons === "function") updateGradesPartButtons();
+    } catch (e) {}
   }
 
-  // Привязка обработчиков к кнопкам тем
-  document.querySelectorAll(".theme-choice-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
+  // Привязка обработчиков к контейнеру (делегирование событий) и кнопкам напрямую
+  const themeContainer = document.getElementById("themeSelectorContainer");
+  if (themeContainer) {
+    themeContainer.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-theme-btn]");
+      if (!btn) return;
       triggerHaptic("medium");
       const tid = btn.getAttribute("data-theme-btn");
-      applyTheme(tid);
+      if (tid) applyTheme(tid);
+    });
+  }
+
+  document.querySelectorAll(".theme-choice-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      triggerHaptic("medium");
+      const tid = btn.getAttribute("data-theme-btn");
+      if (tid) applyTheme(tid);
     });
   });
 

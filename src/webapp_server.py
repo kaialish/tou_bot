@@ -486,8 +486,15 @@ async def handle_refresh(request: web.Request) -> web.Response:
 
 
 async def handle_index(request: web.Request) -> web.FileResponse:
-    """Отдает главную страницу webapp/index.html."""
-    return web.FileResponse(WEBAPP_DIR / "index.html")
+    """Отдает главную страницу webapp/index.html с заголовками против кэширования для мгновенного обновления."""
+    return web.FileResponse(
+        WEBAPP_DIR / "index.html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        }
+    )
 
 
 async def handle_admin_stats(request: web.Request) -> web.Response:
