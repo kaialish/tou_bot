@@ -483,9 +483,9 @@
   </nav>
 
   <!-- Скрипт демо-данных (фолбэк для локального тестирования в браузере без бэкенда) -->
-  <script src="/static/mock_data.js"></script>
+  <script src="/static/mock_data.js?v=2.4"></script>
   <!-- Основная логика приложения -->
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=2.4"></script>
 
   <!-- ==================== SETTINGS MODAL ==================== -->
   <div id="settingsModal" class="hidden fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
@@ -522,39 +522,39 @@
         </div>
         <div class="flex items-center justify-between pt-1 px-1" id="themeSelectorContainer">
           <!-- Emerald -->
-          <button data-theme-btn="emerald" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform" title="Изумруд">
-            <span class="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center ring-2 ring-emerald-400 shadow-lg shadow-emerald-500/20">
-              <svg class="w-4 h-4 text-white theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+          <button type="button" data-theme-btn="emerald" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform cursor-pointer" title="Изумруд">
+            <span class="pointer-events-none w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center ring-2 ring-emerald-400 shadow-lg shadow-emerald-500/20">
+              <svg class="pointer-events-none w-4 h-4 text-white theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </span>
-            <span class="text-[10px] text-white font-medium">Изумруд</span>
+            <span class="pointer-events-none text-[10px] text-white font-medium">Изумруд</span>
           </button>
           <!-- Ocean -->
-          <button data-theme-btn="ocean" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform" title="Океан">
-            <span class="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-600 to-cyan-400 flex items-center justify-center ring-0 ring-sky-400">
-              <svg class="w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+          <button type="button" data-theme-btn="ocean" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform cursor-pointer" title="Океан">
+            <span class="pointer-events-none w-8 h-8 rounded-full bg-gradient-to-tr from-sky-600 to-cyan-400 flex items-center justify-center ring-0 ring-sky-400">
+              <svg class="pointer-events-none w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </span>
-            <span class="text-[10px] text-slate-400 font-medium">Океан</span>
+            <span class="pointer-events-none text-[10px] text-slate-400 font-medium">Океан</span>
           </button>
           <!-- Purple -->
-          <button data-theme-btn="purple" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform" title="Неон">
-            <span class="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-400 flex items-center justify-center ring-0 ring-purple-400">
-              <svg class="w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+          <button type="button" data-theme-btn="purple" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform cursor-pointer" title="Неон">
+            <span class="pointer-events-none w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-400 flex items-center justify-center ring-0 ring-purple-400">
+              <svg class="pointer-events-none w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </span>
-            <span class="text-[10px] text-slate-400 font-medium">Неон</span>
+            <span class="pointer-events-none text-[10px] text-slate-400 font-medium">Неон</span>
           </button>
           <!-- Sunset -->
-          <button data-theme-btn="sunset" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform" title="Закат">
-            <span class="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 to-orange-400 flex items-center justify-center ring-0 ring-amber-400">
-              <svg class="w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+          <button type="button" data-theme-btn="sunset" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform cursor-pointer" title="Закат">
+            <span class="pointer-events-none w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 to-orange-400 flex items-center justify-center ring-0 ring-amber-400">
+              <svg class="pointer-events-none w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </span>
-            <span class="text-[10px] text-slate-400 font-medium">Закат</span>
+            <span class="pointer-events-none text-[10px] text-slate-400 font-medium">Закат</span>
           </button>
           <!-- OLED -->
-          <button data-theme-btn="oled" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform" title="OLED Черный">
-            <span class="w-8 h-8 rounded-full bg-gradient-to-tr from-black to-slate-800 border border-slate-600 flex items-center justify-center ring-0 ring-white">
-              <svg class="w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+          <button type="button" data-theme-btn="oled" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform cursor-pointer" title="OLED Черный">
+            <span class="pointer-events-none w-8 h-8 rounded-full bg-gradient-to-tr from-black to-slate-800 border border-slate-600 flex items-center justify-center ring-0 ring-white">
+              <svg class="pointer-events-none w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </span>
-            <span class="text-[10px] text-slate-400 font-medium">OLED</span>
+            <span class="pointer-events-none text-[10px] text-slate-400 font-medium">OLED</span>
           </button>
         </div>
       </div>
