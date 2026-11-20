@@ -447,10 +447,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function getTypeBadgeClass(typeStr = "") {
     const t = typeStr.toLowerCase();
-    if (t.includes("лек")) return "bg-sky-500/15 text-sky-300 border border-sky-500/30";
-    if (t.includes("прак") || t.includes("сем")) return "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30";
-    if (t.includes("лаб")) return "bg-purple-500/15 text-purple-300 border border-purple-500/30";
-    return "bg-slate-700/40 text-slate-300";
+    if (t.includes("лек")) return "badge-type-lecture";
+    if (t.includes("лаб")) return "badge-type-lab";
+    if (t.includes("прак") || t.includes("сем")) return "badge-type-practice";
+    if (t.includes("дист") || t.includes("mook") || t.includes("моок")) return "badge-type-mook";
+    return "badge-type-default";
   }
 
   function expandLessonType(t = "") {
@@ -458,6 +459,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (s.includes("лек")) return "Лекция";
     if (s.includes("лаб")) return "Лабораторная";
     if (s.includes("прак") || s.includes("сем")) return "Практика";
+    if (s.includes("дист") || s.includes("mook") || s.includes("моок")) return "MOOK";
     return t || "Занятие";
   }
 
@@ -534,23 +536,23 @@ document.addEventListener("DOMContentLoaded", () => {
     // Выше 70 включительно — зеленый цвет
     if (num >= 70) {
       return {
-        text: "text-emerald-400",
-        badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-semibold"
+        text: "score-green text-emerald-400 font-bold",
+        badge: "score-badge-green font-semibold"
       };
     }
 
     // От 51 до 69 включительно — оранжевый цвет
     if (num >= 51 && num <= 69.99) {
       return {
-        text: "text-amber-400",
-        badge: "bg-amber-500/15 text-amber-400 border-amber-500/30 font-semibold"
+        text: "score-amber text-amber-400 font-bold",
+        badge: "score-badge-amber font-semibold"
       };
     }
 
     // 50 и ниже включительно — красный цвет
     return {
-      text: "text-rose-400",
-      badge: "bg-rose-500/15 text-rose-400 border-rose-500/30 font-semibold"
+      text: "score-red text-rose-400 font-bold",
+      badge: "score-badge-red font-semibold"
     };
   }
 
@@ -762,7 +764,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (checksGrid) {
       checksGrid.innerHTML = checks.map(c => {
         const isPos = c.indicator === "positive";
-        const dotColor = isPos ? "bg-emerald-500" : "bg-red-500";
+        const dotColor = isPos ? "status-dot-pos bg-emerald-500" : "status-dot-neg bg-red-500";
         let displayVal = c.value || "Нет данных";
 
         // Для блока флюорографии оставляем только дату действия
@@ -1037,7 +1039,85 @@ document.addEventListener("DOMContentLoaded", () => {
       } relative flex-shrink-0`;
       if (tMookThumb) tMookThumb.style.transform = mookEnabled ? "translateX(24px)" : "translateX(0px)";
     }
+
+    // Синхронизируем состояние темы в модалке
+    const currentTheme = document.documentElement.getAttribute("data-theme") || "emerald";
+    applyTheme(currentTheme);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ТЕМЫ ОФОРМЛЕНИЯ
+  // ─────────────────────────────────────────────────────────────────────────────
+  const THEMES = {
+    emerald: { name: "Изумруд", ringClass: "ring-emerald-400" },
+    ocean: { name: "Океан", ringClass: "ring-sky-400" },
+    purple: { name: "Неон", ringClass: "ring-purple-400" },
+    sunset: { name: "Закат", ringClass: "ring-amber-400" },
+    oled: { name: "OLED", ringClass: "ring-white" },
+  };
+
+  function applyTheme(themeId) {
+    if (!THEMES[themeId]) themeId = "emerald";
+    document.documentElement.setAttribute("data-theme", themeId);
+    try {
+      localStorage.setItem("tou_app_theme", themeId);
+    } catch (e) {}
+
+    const nameEl = document.getElementById("currentThemeName");
+    if (nameEl) nameEl.textContent = THEMES[themeId].name;
+
+    document.querySelectorAll(".theme-choice-btn").forEach((btn) => {
+      const tid = btn.getAttribute("data-theme-btn");
+      const circle = btn.querySelector("span:first-child");
+      const label = btn.querySelector("span:last-child");
+      const check = btn.querySelector(".theme-check-icon");
+      const isCurrent = tid === themeId;
+
+      if (circle) {
+        circle.classList.remove(
+          "ring-2",
+          "ring-0",
+          "ring-emerald-400",
+          "ring-sky-400",
+          "ring-purple-400",
+          "ring-amber-400",
+          "ring-white",
+          "shadow-lg",
+          "shadow-emerald-500/20"
+        );
+        if (isCurrent) {
+          circle.classList.add("ring-2", THEMES[tid].ringClass);
+        } else {
+          circle.classList.add("ring-0");
+        }
+      }
+      if (label) {
+        label.className = `text-[10px] font-medium ${isCurrent ? "text-white font-bold" : "text-slate-400"}`;
+      }
+      if (check) {
+        check.classList.toggle("hidden", !isCurrent);
+      }
+    });
+  }
+
+  // Привязка обработчиков к кнопкам тем
+  document.querySelectorAll(".theme-choice-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      triggerHaptic("medium");
+      const tid = btn.getAttribute("data-theme-btn");
+      applyTheme(tid);
+    });
+  });
+
+  // Загрузка темы при старте скрипта
+  const savedTheme = (() => {
+    try {
+      return localStorage.getItem("tou_app_theme") || "emerald";
+    } catch (e) {
+      return "emerald";
+    }
+  })();
+  applyTheme(savedTheme);
 
   const btnSettings = document.getElementById("btnSettings");
   const settingsModal = document.getElementById("settingsModal");
