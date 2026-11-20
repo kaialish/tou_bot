@@ -3,7 +3,7 @@ from src.config import WEBAPP_URL
 
 
 def get_main_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
-    """Главное меню бота: кнопка перехода в Mini App, демо и настройки."""
+    """Главное меню бота: кнопка перехода в Mini App, демо-режим и панель администратора."""
     app_url = WEBAPP_URL if WEBAPP_URL else "https://tou.edu.kz"
     demo_url = f"{app_url}?demo=1" if "?" not in app_url else f"{app_url}&demo=1"
     keyboard = [
@@ -11,8 +11,7 @@ def get_main_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📱 Открыть ToU Mini App", web_app=WebAppInfo(url=app_url)),
         ],
         [
-            InlineKeyboardButton(text="🎮 Демо-версия", web_app=WebAppInfo(url=demo_url)),
-            InlineKeyboardButton(text="⚙️ Настройки", callback_data="menu_settings"),
+            InlineKeyboardButton(text="🎮 Демо-режим", web_app=WebAppInfo(url=demo_url)),
         ],
     ]
     if is_admin:

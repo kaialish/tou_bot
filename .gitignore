@@ -11,6 +11,7 @@ users.db
 cloudflared.exe
 debug.html
 debug_schedule.html
+scratch/
 __pycache__/
 *.pyc
 
