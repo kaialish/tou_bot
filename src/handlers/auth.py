@@ -48,7 +48,7 @@ async def cmd_start(message: Message, state: FSMContext):
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=f"🔑 Войти как {saved_login}", callback_data="quick_login")],
                 [InlineKeyboardButton(text="✏️ Ввести другой логин", callback_data="manual_login")],
-                [InlineKeyboardButton(text="🎮 Демо-режим (тестовые данные)", web_app=WebAppInfo(url=demo_url))],
+                [InlineKeyboardButton(text="🎮 Демо-режим", web_app=WebAppInfo(url=demo_url))],
             ])
             await message.answer("С возвращением! Войти под сохраненным аккаунтом?", reply_markup=kb)
         else:
