@@ -140,5 +140,9 @@ window.MOCK_DATA = {
     { title: "РК №2", period: "30.11.2026 - 12.12.2026", status: "начнётся через 31 день", marker: "🔹" },
     { title: "1-я зимняя сессия", period: "14.12.2026 - 02.01.2027", status: "начнётся через 45 дней", marker: "🔹" },
     { title: "Зимние каникулы", period: "04.01.2027 - 16.01.2027", status: "начнётся через 66 дней", marker: "🔹" }
-  ]
+  ],
+  settings: {
+    notifications_enabled: true,
+    notify_mook: false
+  }
 };

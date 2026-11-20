@@ -30,7 +30,14 @@ from src.database import (
     get_users_stats,
     set_maintenance_status,
     is_maintenance_active,
+    is_user_subscribed,
+    subscribe_to_notifications,
+    unsubscribe_from_notifications,
+    get_user_mook_setting,
+    toggle_user_mook_setting,
+    delete_user_account,
 )
+from src.utils.texts import PRIVACY_POLICY_TEXT
 from src.services.parser import (
     parse_schedule_items,
     parse_academic_status,
@@ -302,6 +309,10 @@ def _build_demo_payload() -> dict:
             "is_offline": False,
             "is_admin": True,
         },
+        "settings": {
+            "notifications_enabled": True,
+            "notify_mook": False,
+        },
         "live_widget": live_widget,
         "schedule": demo_schedule,
         "grades": demo_grades,
@@ -398,6 +409,8 @@ async def handle_student_data(request: web.Request) -> web.Response:
         key_dates = parse_key_dates("")
 
         is_admin = bool(user_id and user_id in ADMIN_IDS)
+        is_sub = await is_user_subscribed(user_id) if user_id else True
+        notify_mook = await get_user_mook_setting(user_id) if user_id else False
 
         payload = {
             "student": {
@@ -408,6 +421,10 @@ async def handle_student_data(request: web.Request) -> web.Response:
                 "is_demo": False,
                 "is_offline": False,
                 "is_admin": is_admin,
+            },
+            "settings": {
+                "notifications_enabled": bool(is_sub),
+                "notify_mook": bool(notify_mook),
             },
             "live_widget": live_widget,
             "schedule": schedule_grouped,
@@ -570,6 +587,63 @@ async def handle_user_avatar(request: web.Request) -> web.Response:
     return web.Response(status=404)
 
 
+async def handle_settings_toggle_notifications(request: web.Request) -> web.Response:
+    """Включение/выключение уведомлений о парах из Mini App."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    user_id_raw = data.get("user_id") or request.query.get("user_id")
+    user_id = int(user_id_raw) if str(user_id_raw).isdigit() else None
+    if not user_id:
+        return web.json_response({"success": False, "error": "user_id required"}, status=400)
+
+    current_sub = await is_user_subscribed(user_id)
+    if current_sub:
+        await unsubscribe_from_notifications(user_id)
+        new_val = False
+    else:
+        await subscribe_to_notifications(user_id)
+        new_val = True
+
+    return web.json_response({"success": True, "notifications_enabled": new_val})
+
+
+async def handle_settings_toggle_mook(request: web.Request) -> web.Response:
+    """Включение/выключение уведомлений о парах MOOK (дистант) из Mini App."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    user_id_raw = data.get("user_id") or request.query.get("user_id")
+    user_id = int(user_id_raw) if str(user_id_raw).isdigit() else None
+    if not user_id:
+        return web.json_response({"success": False, "error": "user_id required"}, status=400)
+
+    new_val = await toggle_user_mook_setting(user_id)
+    return web.json_response({"success": True, "notify_mook": new_val})
+
+
+async def handle_settings_delete_account(request: web.Request) -> web.Response:
+    """Удаление аккаунта и кэша студента по запросу из Mini App."""
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    user_id_raw = data.get("user_id") or request.query.get("user_id")
+    user_id = int(user_id_raw) if str(user_id_raw).isdigit() else None
+    if not user_id:
+        return web.json_response({"success": False, "error": "user_id required"}, status=400)
+
+    deleted = await delete_user_account(user_id)
+    return web.json_response({"success": deleted})
+
+
+async def handle_privacy_policy(request: web.Request) -> web.Response:
+    """Возвращает текст политики конфиденциальности для модального окна Mini App."""
+    return web.json_response({"policy": PRIVACY_POLICY_TEXT})
+
+
 def create_app() -> web.Application:
     """Создает и настраивает экземпляр aiohttp приложения."""
     app = web.Application()
@@ -582,6 +656,10 @@ def create_app() -> web.Application:
     app.router.add_get("/api/admin/stats", handle_admin_stats)
     app.router.add_post("/api/admin/toggle-maintenance", handle_admin_toggle_maintenance)
     app.router.add_get("/api/admin/toggle-maintenance", handle_admin_toggle_maintenance)
+    app.router.add_post("/api/settings/toggle-notifications", handle_settings_toggle_notifications)
+    app.router.add_post("/api/settings/toggle-mook", handle_settings_toggle_mook)
+    app.router.add_post("/api/settings/delete-account", handle_settings_delete_account)
+    app.router.add_get("/api/privacy-policy", handle_privacy_policy)
 
     # Раздача статики (index.html, app.js, mock_data.js)
     app.router.add_static("/static/", path=str(WEBAPP_DIR), name="static")

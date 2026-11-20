@@ -120,6 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderLessons(state.selectedDay);
     renderGrades(state.selectedGradesPart);
     renderStatus();
+    renderSettings();
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -1003,6 +1004,227 @@ document.addEventListener("DOMContentLoaded", () => {
       triggerHaptic("light");
       const banner = document.getElementById("demoNoticeBanner");
       if (banner) banner.classList.add("hidden");
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // НАСТРОЙКИ (SETTINGS MODAL)
+  // ─────────────────────────────────────────────────────────────────────────────
+  function renderSettings() {
+    const s = state.data?.settings || {};
+    const notifEnabled = s.notifications_enabled !== false;
+    const mookEnabled = s.notify_mook === true;
+
+    const tNotif = document.getElementById("toggleNotifications");
+    const tNotifThumb = document.getElementById("toggleNotificationsThumb");
+    const tMook = document.getElementById("toggleMook");
+    const tMookThumb = document.getElementById("toggleMookThumb");
+    const mookRow = document.getElementById("mookToggleRow");
+
+    if (tNotif) {
+      tNotif.className = `w-12 h-6 rounded-full transition-colors duration-200 ${
+        notifEnabled ? "bg-emerald-500" : "bg-slate-600"
+      } relative flex-shrink-0`;
+      if (tNotifThumb) tNotifThumb.style.transform = notifEnabled ? "translateX(24px)" : "translateX(0px)";
+    }
+    if (mookRow) {
+      if (notifEnabled) {
+        mookRow.classList.remove("hidden");
+      } else {
+        mookRow.classList.add("hidden");
+      }
+    }
+    if (tMook) {
+      tMook.className = `w-12 h-6 rounded-full transition-colors duration-200 ${
+        mookEnabled ? "bg-emerald-500" : "bg-slate-600"
+      } relative flex-shrink-0`;
+      if (tMookThumb) tMookThumb.style.transform = mookEnabled ? "translateX(24px)" : "translateX(0px)";
+    }
+  }
+
+  const btnSettings = document.getElementById("btnSettings");
+  const settingsModal = document.getElementById("settingsModal");
+  const btnCloseSettings = document.getElementById("btnCloseSettings");
+
+  if (btnSettings) {
+    btnSettings.addEventListener("click", () => {
+      triggerHaptic("light");
+      renderSettings();
+      if (settingsModal) settingsModal.classList.remove("hidden");
+    });
+  }
+
+  if (btnCloseSettings) {
+    btnCloseSettings.addEventListener("click", () => {
+      triggerHaptic("light");
+      if (settingsModal) settingsModal.classList.add("hidden");
+    });
+  }
+
+  if (settingsModal) {
+    settingsModal.addEventListener("click", (e) => {
+      if (e.target === settingsModal) {
+        settingsModal.classList.add("hidden");
+      }
+    });
+  }
+
+  const getActiveUserId = () => tg?.initDataUnsafe?.user?.id || urlParams.get("user_id");
+
+  // Переключение уведомлений о парах
+  const toggleNotificationsBtn = document.getElementById("toggleNotifications");
+  if (toggleNotificationsBtn) {
+    toggleNotificationsBtn.addEventListener("click", async () => {
+      triggerHaptic("medium");
+      const uid = getActiveUserId();
+      if (state.isDemoMode || !uid || uid === "demo") {
+        if (tg?.showAlert) {
+          tg.showAlert("Настройки уведомлений доступны только в личном аккаунте.");
+        } else {
+          alert("Настройки уведомлений доступны только в личном аккаунте.");
+        }
+        return;
+      }
+      try {
+        const res = await fetch("/api/settings/toggle-notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: uid })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (!state.data.settings) state.data.settings = {};
+          state.data.settings.notifications_enabled = json.notifications_enabled;
+          renderSettings();
+        }
+      } catch (err) {
+        console.error("Ошибка переключения уведомлений:", err);
+      }
+    });
+  }
+
+  // Переключение уведомлений о парах MOOK
+  const toggleMookBtn = document.getElementById("toggleMook");
+  if (toggleMookBtn) {
+    toggleMookBtn.addEventListener("click", async () => {
+      triggerHaptic("medium");
+      const uid = getActiveUserId();
+      if (state.isDemoMode || !uid || uid === "demo") {
+        if (tg?.showAlert) {
+          tg.showAlert("Настройки уведомлений доступны только в личном аккаунте.");
+        } else {
+          alert("Настройки уведомлений доступны только в личном аккаунте.");
+        }
+        return;
+      }
+      try {
+        const res = await fetch("/api/settings/toggle-mook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: uid })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (!state.data.settings) state.data.settings = {};
+          state.data.settings.notify_mook = json.notify_mook;
+          renderSettings();
+        }
+      } catch (err) {
+        console.error("Ошибка переключения MOOK:", err);
+      }
+    });
+  }
+
+  // Политика конфиденциальности
+  const btnPrivacyPolicy = document.getElementById("btnPrivacyPolicy");
+  const privacyPolicyModal = document.getElementById("privacyPolicyModal");
+  const btnClosePrivacy = document.getElementById("btnClosePrivacy");
+  const privacyPolicyText = document.getElementById("privacyPolicyText");
+
+  if (btnPrivacyPolicy) {
+    btnPrivacyPolicy.addEventListener("click", async () => {
+      triggerHaptic("light");
+      if (privacyPolicyText && !privacyPolicyText.textContent.trim()) {
+        try {
+          const res = await fetch("/api/privacy-policy");
+          if (res.ok) {
+            const json = await res.json();
+            const cleanText = (json.policy || "")
+              .replace(/<b>/g, "")
+              .replace(/<\/b>/g, "")
+              .replace(/<i>/g, "")
+              .replace(/<\/i>/g, "")
+              .replace(/<[^>]+>/g, "");
+            privacyPolicyText.textContent = cleanText;
+          }
+        } catch (err) {
+          console.error("Ошибка загрузки политики:", err);
+          privacyPolicyText.textContent = "Не удалось загрузить политику конфиденциальности.";
+        }
+      }
+      if (privacyPolicyModal) privacyPolicyModal.classList.remove("hidden");
+    });
+  }
+
+  if (btnClosePrivacy) {
+    btnClosePrivacy.addEventListener("click", () => {
+      triggerHaptic("light");
+      if (privacyPolicyModal) privacyPolicyModal.classList.add("hidden");
+    });
+  }
+
+  if (privacyPolicyModal) {
+    privacyPolicyModal.addEventListener("click", (e) => {
+      if (e.target === privacyPolicyModal) {
+        privacyPolicyModal.classList.add("hidden");
+      }
+    });
+  }
+
+  // Удаление аккаунта
+  const btnDeleteAccount = document.getElementById("btnDeleteAccount");
+  if (btnDeleteAccount) {
+    btnDeleteAccount.addEventListener("click", async () => {
+      triggerHaptic("heavy");
+      const uid = getActiveUserId();
+      if (state.isDemoMode || !uid || uid === "demo") {
+        if (tg?.showAlert) {
+          tg.showAlert("Действие недоступно в демо-режиме.");
+        } else {
+          alert("Действие недоступно в демо-режиме.");
+        }
+        return;
+      }
+
+      const confirmed = await new Promise((resolve) => {
+        if (tg?.showConfirm) {
+          tg.showConfirm("⚠️ Вы уверены, что хотите удалить все свои данные из базы бота? Это действие необратимо.", resolve);
+        } else {
+          resolve(window.confirm("Удалить все сохраненные данные из бота?"));
+        }
+      });
+
+      if (!confirmed) return;
+
+      try {
+        const res = await fetch("/api/settings/delete-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: uid })
+        });
+        if (res.ok) {
+          if (settingsModal) settingsModal.classList.add("hidden");
+          if (tg?.showAlert) {
+            tg.showAlert("✅ Ваши данные успешно удалены. Для повторного входа откройте бота и отправьте /start.");
+          } else {
+            alert("✅ Ваши данные успешно удалены. Для повторного входа отправьте /start в боте.");
+          }
+          // Переключаем в демо режим
+          loadData(false, true);
+        }
+      } catch (err) {
+        console.error("Ошибка удаления аккаунта:", err);
+      }
     });
   }
 
