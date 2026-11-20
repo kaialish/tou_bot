@@ -11,6 +11,10 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
+    try {
+      const savedThemePre = localStorage.getItem("tou_app_theme");
+      if (savedThemePre) document.documentElement.setAttribute("data-theme", savedThemePre);
+    } catch (e) {}
     tailwind.config = {
       darkMode: 'class',
       theme: {
@@ -31,12 +35,91 @@
 
   <style>
     /* Плавные переходы и стилизация под нативное мобильное приложение */
+    :root {
+      --accent: #10b981;
+      --accent-rgb: 16, 185, 129;
+      --accent-light: #34d399;
+      --accent-dark: #059669;
+      --accent-bg: rgba(16, 185, 129, 0.15);
+      --accent-border: rgba(16, 185, 129, 0.4);
+      --accent-glow: rgba(16, 185, 129, 0.2);
+      --body-bg: #0b1322;
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --header-bg: rgba(15, 23, 42, 0.9);
+      --nav-bg: rgba(15, 23, 42, 0.95);
+    }
+
+    [data-theme="ocean"] {
+      --accent: #0ea5e9;
+      --accent-rgb: 14, 165, 233;
+      --accent-light: #38bdf8;
+      --accent-dark: #0284c7;
+      --accent-bg: rgba(14, 165, 233, 0.18);
+      --accent-border: rgba(14, 165, 233, 0.45);
+      --accent-glow: rgba(14, 165, 233, 0.25);
+      --body-bg: #081325;
+      --card-bg: rgba(15, 28, 50, 0.75);
+      --header-bg: rgba(11, 23, 42, 0.92);
+      --nav-bg: rgba(11, 23, 42, 0.96);
+    }
+
+    [data-theme="purple"] {
+      --accent: #a855f7;
+      --accent-rgb: 168, 85, 247;
+      --accent-light: #c084fc;
+      --accent-dark: #9333ea;
+      --accent-bg: rgba(168, 85, 247, 0.18);
+      --accent-border: rgba(168, 85, 247, 0.45);
+      --accent-glow: rgba(168, 85, 247, 0.25);
+      --body-bg: #120c24;
+      --card-bg: rgba(30, 20, 52, 0.75);
+      --header-bg: rgba(22, 14, 40, 0.92);
+      --nav-bg: rgba(22, 14, 40, 0.96);
+    }
+
+    [data-theme="sunset"] {
+      --accent: #f59e0b;
+      --accent-rgb: 245, 158, 11;
+      --accent-light: #fbbf24;
+      --accent-dark: #d97706;
+      --accent-bg: rgba(245, 158, 11, 0.18);
+      --accent-border: rgba(245, 158, 11, 0.45);
+      --accent-glow: rgba(245, 158, 11, 0.25);
+      --body-bg: #1a110a;
+      --card-bg: rgba(42, 26, 16, 0.75);
+      --header-bg: rgba(30, 18, 11, 0.92);
+      --nav-bg: rgba(30, 18, 11, 0.96);
+    }
+
+    [data-theme="oled"] {
+      --accent: #38bdf8;
+      --accent-rgb: 56, 189, 248;
+      --accent-light: #7dd3fc;
+      --accent-dark: #0284c7;
+      --accent-bg: rgba(255, 255, 255, 0.08);
+      --accent-border: rgba(255, 255, 255, 0.25);
+      --accent-glow: rgba(56, 189, 248, 0.15);
+      --body-bg: #000000;
+      --card-bg: rgba(18, 18, 18, 0.95);
+      --header-bg: rgba(0, 0, 0, 0.98);
+      --nav-bg: rgba(0, 0, 0, 0.98);
+    }
+
     body {
-      background-color: var(--tg-theme-bg-color, #0b1322);
+      background-color: var(--body-bg) !important;
       color: var(--tg-theme-text-color, #f8fafc);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       -webkit-tap-highlight-color: transparent;
       user-select: none;
+      transition: background-color 0.25s ease;
+    }
+    header {
+      background-color: var(--header-bg) !important;
+      transition: background-color 0.25s ease;
+    }
+    nav {
+      background-color: var(--nav-bg) !important;
+      transition: background-color 0.25s ease;
     }
     .scrollbar-none::-webkit-scrollbar {
       display: none;
@@ -46,14 +129,120 @@
       scrollbar-width: none;
     }
     .glass-card {
-      background: rgba(30, 41, 59, 0.7);
+      background: var(--card-bg) !important;
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
     .glass-card-active {
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 95, 70, 0.25));
-      border: 1px solid rgba(16, 185, 129, 0.4);
-      box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+      background: linear-gradient(135deg, var(--accent-bg), rgba(var(--accent-rgb), 0.25)) !important;
+      border: 1px solid var(--accent-border) !important;
+      box-shadow: 0 0 20px var(--accent-glow) !important;
+    }
+
+    /* Поддержка динамического акцента для всех тем кроме дефолтного emerald */
+    [data-theme]:not([data-theme="emerald"]) .text-emerald-400:not(.score-green):not(.badge-type-practice),
+    [data-theme]:not([data-theme="emerald"]) .text-emerald-300:not(.score-green):not(.badge-type-practice),
+    [data-theme]:not([data-theme="emerald"]) .text-emerald-200:not(.score-green):not(.badge-type-practice) {
+      color: var(--accent-light) !important;
+    }
+    [data-theme]:not([data-theme="emerald"]) .bg-emerald-500:not(.status-dot-pos),
+    [data-theme]:not([data-theme="emerald"]) .bg-emerald-600 {
+      background-color: var(--accent) !important;
+    }
+    [data-theme]:not([data-theme="emerald"]) .bg-emerald-400 {
+      background-color: var(--accent-light) !important;
+    }
+    [data-theme]:not([data-theme="emerald"]) .bg-emerald-500\/20,
+    [data-theme]:not([data-theme="emerald"]) .bg-emerald-950\/80,
+    [data-theme]:not([data-theme="emerald"]) .bg-emerald-950\/70,
+    [data-theme]:not([data-theme="emerald"]) .bg-emerald-500\/15:not(.score-badge-green):not(.badge-type-practice) {
+      background-color: var(--accent-bg) !important;
+    }
+    [data-theme]:not([data-theme="emerald"]) .border-emerald-500\/40,
+    [data-theme]:not([data-theme="emerald"]) .border-emerald-500\/30:not(.score-badge-green):not(.badge-type-practice),
+    [data-theme]:not([data-theme="emerald"]) .border-emerald-500\/80,
+    [data-theme]:not([data-theme="emerald"]) .border-emerald-400\/30,
+    [data-theme]:not([data-theme="emerald"]) .border-emerald-400 {
+      border-color: var(--accent-border) !important;
+    }
+    [data-theme]:not([data-theme="emerald"]) .shadow-emerald-500\/20,
+    [data-theme]:not([data-theme="emerald"]) .shadow-emerald-500\/15 {
+      box-shadow: 0 4px 14px var(--accent-glow) !important;
+    }
+    [data-theme]:not([data-theme="emerald"]) .ring-emerald-500\/30 {
+      --tw-ring-color: var(--accent-border) !important;
+    }
+    [data-theme]:not([data-theme="emerald"]) #headerAvatarContainer {
+      background: linear-gradient(135deg, var(--accent-dark), var(--accent)) !important;
+      box-shadow: 0 10px 25px -5px var(--accent-glow) !important;
+      border-color: var(--accent-border) !important;
+    }
+    [data-theme]:not([data-theme="emerald"]) #demoNoticeBanner {
+      background: linear-gradient(to right, var(--accent-bg), rgba(15, 23, 42, 0.95)) !important;
+      border-color: var(--accent-border) !important;
+    }
+    [data-theme]:not([data-theme="emerald"]) #settingsModal > div,
+    [data-theme]:not([data-theme="emerald"]) #privacyPolicyModal > div {
+      background-color: var(--body-bg) !important;
+    }
+
+    /* Семантическая подсветка оценок и статусов (светофор успеваемости не зависит от темы) */
+    .score-green {
+      color: #34d399 !important;
+    }
+    .score-amber {
+      color: #fbbf24 !important;
+    }
+    .score-red {
+      color: #fb7185 !important;
+    }
+    .score-badge-green {
+      background-color: rgba(16, 185, 129, 0.15) !important;
+      color: #34d399 !important;
+      border: 1px solid rgba(16, 185, 129, 0.35) !important;
+    }
+    .score-badge-amber {
+      background-color: rgba(245, 158, 11, 0.15) !important;
+      color: #fbbf24 !important;
+      border: 1px solid rgba(245, 158, 11, 0.35) !important;
+    }
+    .score-badge-red {
+      background-color: rgba(244, 63, 94, 0.15) !important;
+      color: #fb7185 !important;
+      border: 1px solid rgba(244, 63, 94, 0.35) !important;
+    }
+    .status-dot-pos {
+      background-color: #10b981 !important;
+    }
+    .status-dot-neg {
+      background-color: #ef4444 !important;
+    }
+
+    /* Семантические бейджи типов занятий в расписании (высокая контрастность, не зависят от темы) */
+    .badge-type-lecture {
+      background-color: rgba(14, 165, 233, 0.18) !important;
+      color: #38bdf8 !important;
+      border: 1px solid rgba(14, 165, 233, 0.45) !important;
+    }
+    .badge-type-practice {
+      background-color: rgba(16, 185, 129, 0.18) !important;
+      color: #34d399 !important;
+      border: 1px solid rgba(16, 185, 129, 0.45) !important;
+    }
+    .badge-type-lab {
+      background-color: rgba(168, 85, 247, 0.18) !important;
+      color: #c084fc !important;
+      border: 1px solid rgba(168, 85, 247, 0.45) !important;
+    }
+    .badge-type-mook {
+      background-color: rgba(245, 158, 11, 0.18) !important;
+      color: #fbbf24 !important;
+      border: 1px solid rgba(245, 158, 11, 0.45) !important;
+    }
+    .badge-type-default {
+      background-color: rgba(100, 116, 139, 0.2) !important;
+      color: #cbd5e1 !important;
+      border: 1px solid rgba(100, 116, 139, 0.4) !important;
     }
   </style>
 </head>
@@ -69,7 +258,6 @@
       <div>
         <div class="flex items-center space-x-1.5">
           <h1 class="font-bold text-base leading-tight text-white" id="headerStudentName">Студент ToU</h1>
-          <span id="demoBadge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">🎮 Демо</span>
           <span id="offlineBadge" class="hidden text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Оффлайн</span>
         </div>
         <p class="text-xs text-slate-400" id="headerSubtext">Торайгыров Университет</p>
@@ -325,6 +513,50 @@
         <button id="toggleMook" class="w-12 h-6 rounded-full transition-colors duration-200 bg-slate-600 relative flex-shrink-0">
           <span id="toggleMookThumb" class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200"></span>
         </button>
+      </div>
+      <!-- Тема оформления (Accent Theme) -->
+      <div class="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/40 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <div class="font-semibold text-sm text-white">🎨 Тема оформления</div>
+          <span id="currentThemeName" class="text-xs text-slate-400">Изумруд</span>
+        </div>
+        <div class="flex items-center justify-between pt-1 px-1" id="themeSelectorContainer">
+          <!-- Emerald -->
+          <button data-theme-btn="emerald" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform" title="Изумруд">
+            <span class="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center ring-2 ring-emerald-400 shadow-lg shadow-emerald-500/20">
+              <svg class="w-4 h-4 text-white theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </span>
+            <span class="text-[10px] text-white font-medium">Изумруд</span>
+          </button>
+          <!-- Ocean -->
+          <button data-theme-btn="ocean" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform" title="Океан">
+            <span class="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-600 to-cyan-400 flex items-center justify-center ring-0 ring-sky-400">
+              <svg class="w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </span>
+            <span class="text-[10px] text-slate-400 font-medium">Океан</span>
+          </button>
+          <!-- Purple -->
+          <button data-theme-btn="purple" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform" title="Неон">
+            <span class="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-400 flex items-center justify-center ring-0 ring-purple-400">
+              <svg class="w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </span>
+            <span class="text-[10px] text-slate-400 font-medium">Неон</span>
+          </button>
+          <!-- Sunset -->
+          <button data-theme-btn="sunset" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform" title="Закат">
+            <span class="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 to-orange-400 flex items-center justify-center ring-0 ring-amber-400">
+              <svg class="w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </span>
+            <span class="text-[10px] text-slate-400 font-medium">Закат</span>
+          </button>
+          <!-- OLED -->
+          <button data-theme-btn="oled" class="theme-choice-btn flex flex-col items-center space-y-1 active:scale-90 transition-transform" title="OLED Черный">
+            <span class="w-8 h-8 rounded-full bg-gradient-to-tr from-black to-slate-800 border border-slate-600 flex items-center justify-center ring-0 ring-white">
+              <svg class="w-4 h-4 text-white hidden theme-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </span>
+            <span class="text-[10px] text-slate-400 font-medium">OLED</span>
+          </button>
+        </div>
       </div>
       <!-- Политика конфиденциальности -->
       <button id="btnPrivacyPolicy" class="w-full text-left p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/40 text-sm font-semibold text-slate-200 active:scale-[0.98] transition-all flex items-center space-x-2">
