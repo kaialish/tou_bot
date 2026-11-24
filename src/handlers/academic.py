@@ -1,16 +1,19 @@
 import json
 from aiogram import Router, F
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 
 from src.database import (
     get_user_credentials,
     save_cached_academic_status,
     get_cached_academic_status,
+    get_cached_schedule,
+    save_cached_schedule,
 )
 from src.services import (
     get_dashboard_html,
+    get_schedule_html,
     parse_key_dates,
     format_key_dates_message,
     parse_academic_status,
@@ -22,7 +25,7 @@ from src.keyboards import (
 )
 from src.utils import cleanup_previous_album, check_rate_limit, update_rate_limit
 from src.states import AuthForm
-from src.config import ADMIN_IDS
+from src.config import ADMIN_IDS, get_kz_now
 
 router = Router()
 
