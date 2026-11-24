@@ -1,0 +1,70 @@
+<!-- Заголовок панели -->
+<div class="flex items-center justify-between px-1">
+  <div>
+    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Панель управления ToU</h2>
+    <p class="text-[11px] text-emerald-400 font-medium">Режим суперпользователя (Админ)</p>
+  </div>
+  <span
+    class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">ADMIN</span>
+</div>
+
+<!-- Метрики пользователей и сервера -->
+<div class="grid grid-cols-2 gap-3">
+  <div class="p-3.5 rounded-2xl glass-card border border-slate-800">
+    <div class="text-[11px] text-slate-400">Студентов в боте</div>
+    <div class="text-2xl font-bold text-white mt-1" id="adminUsersCount">--</div>
+    <div class="text-[10px] text-slate-500 mt-0.5">В базе users_data.db</div>
+  </div>
+  <div class="p-3.5 rounded-2xl glass-card border border-slate-800">
+    <div class="text-[11px] text-slate-400">Техработы</div>
+    <div class="text-xs font-bold mt-1.5" id="adminMaintBadge">
+      <span class="text-emerald-400">🟢 Выключены</span>
+    </div>
+    <button id="adminToggleMaintBtn"
+      class="mt-2 w-full py-1 text-[11px] font-semibold rounded-lg transition-all bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+      Переключить
+    </button>
+  </div>
+</div>
+
+<!-- Быстрые действия -->
+<div class="p-4 rounded-2xl glass-card space-y-3 border border-slate-800">
+  <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Быстрые действия</h3>
+  <div class="grid grid-cols-2 gap-2 text-xs">
+    <button id="adminRefreshStatsBtn"
+      class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/70 text-left transition-all">
+      <div class="font-semibold text-white">🔄 Обновить данные</div>
+      <div class="text-[10px] text-slate-400 mt-0.5">Синхронизация метрик</div>
+    </button>
+    <button id="adminPingPortalBtn"
+      class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/70 text-left transition-all">
+      <div class="font-semibold text-white">🌐 Проверить ToU</div>
+      <div class="text-[10px] text-slate-400 mt-0.5">tou.edu.kz</div>
+    </button>
+  </div>
+  <div id="adminPortalPingResult"
+    class="hidden text-[11px] p-2 rounded-lg bg-slate-900/80 border border-slate-800 font-mono"></div>
+</div>
+
+<!-- Список авторизованных пользователей -->
+<div class="p-4 rounded-2xl glass-card space-y-2 border border-slate-800">
+  <div class="flex items-center justify-between">
+    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Авторизованные логины</h3>
+    <span class="text-[10px] text-slate-500" id="adminLoginsTotal">0 чел.</span>
+  </div>
+  <div id="adminLoginsList" class="space-y-1 text-xs text-slate-300 max-h-40 overflow-y-auto pr-1">
+    <div class="text-slate-500 italic text-[11px]">Загрузка списка...</div>
+  </div>
+</div>
+
+<!-- Системная информация -->
+<div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/80 text-[11px] text-slate-400 space-y-1.5">
+  <div class="flex justify-between"><span>Время сервера:</span> <span class="font-mono text-slate-200"
+      id="adminServerTime">--:--</span></div>
+  <div class="flex justify-between"><span>Часовой пояс:</span> <span class="font-mono text-slate-200">Asia/Almaty
+      (UTC+5)</span></div>
+  <div class="flex justify-between"><span>Криптография:</span> <span class="font-mono text-emerald-400">Fernet
+      AES-128 (Registry OK)</span></div>
+  <div class="flex justify-between"><span>Rate Limiter:</span> <span class="font-mono text-emerald-400">Active
+      (60s cooldown)</span></div>
+</div>

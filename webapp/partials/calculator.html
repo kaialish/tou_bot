@@ -1,0 +1,145 @@
+<!-- ==================== КАЛЬКУЛЯТОР БАЛЛОВ И ДОПУСКА ==================== -->
+<div id="gradeCalculatorCard" class="mt-6 p-4 rounded-2xl glass-card space-y-4 border border-slate-800/90">
+  <!-- Заголовок калькулятора -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center space-x-2">
+      <span class="text-lg">🧮</span>
+      <div>
+        <h3 class="font-bold text-sm text-white">Калькулятор баллов</h3>
+        <p class="text-[11px] text-slate-400">Расчёт рейтинга и допуска к экзамену</p>
+      </div>
+    </div>
+    <button id="btnResetCalc" type="button"
+      class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700/60 transition-all flex items-center space-x-1 active:scale-95">
+      <span>↺</span><span>Сброс</span>
+    </button>
+  </div>
+
+  <!-- Переключатель режима: Рейтинг 1 / Рейтинг 2 / Допуск (РД) -->
+  <div class="flex items-center p-1 rounded-xl bg-slate-900/90 border border-slate-800 text-xs">
+    <button id="calcTabR1" type="button"
+      class="flex-1 py-1.5 font-semibold rounded-lg transition-all bg-emerald-500 text-white shadow-sm">
+      Рейтинг 1
+    </button>
+    <button id="calcTabR2" type="button"
+      class="flex-1 py-1.5 font-semibold rounded-lg transition-all text-slate-400 hover:text-white">
+      Рейтинг 2
+    </button>
+    <button id="calcTabRd" type="button"
+      class="flex-1 py-1.5 font-semibold rounded-lg transition-all text-slate-400 hover:text-white">
+      Допуск (РД)
+    </button>
+  </div>
+
+  <!-- Подсказка формулы -->
+  <div id="calcFormulaHint"
+    class="text-[11px] p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 text-slate-300 font-mono flex items-center justify-between">
+    <span class="text-slate-400">Формула:</span>
+    <span id="calcFormulaText" class="text-emerald-400 font-bold">P1 = (ТУ1 + РК1) / 2</span>
+  </div>
+
+  <!-- Секция: Рейтинг 1 и 2 (ввод недель и РК) -->
+  <div id="calcRatingSection" class="space-y-3.5">
+    <!-- 1. Отсеки: ЛЕКЦИИ -->
+    <div class="p-3 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-1.5">
+          <span class="text-sm">📚</span>
+          <span class="text-xs font-bold text-white uppercase tracking-wider">Лекции</span>
+        </div>
+        <div class="text-[11px] text-slate-400">
+          Ср. балл: <span id="calcLectureAvg" class="font-bold text-slate-400">—</span>
+        </div>
+      </div>
+      <!-- Сетка ячеек лекций по неделям -->
+      <div id="calcLectureCells" class="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+        <!-- Ячейки генерируются динамически (1–8 или 9–15 нед) -->
+      </div>
+    </div>
+
+    <!-- 2. Отсеки: ПРАКТИКА -->
+    <div class="p-3 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-1.5">
+          <span class="text-sm">🛠️</span>
+          <span class="text-xs font-bold text-white uppercase tracking-wider">Практика</span>
+        </div>
+        <div class="text-[11px] text-slate-400">
+          Ср. балл: <span id="calcPracticeAvg" class="font-bold text-slate-400">—</span>
+        </div>
+      </div>
+      <!-- Сетка ячеек практики по неделям -->
+      <div id="calcPracticeCells" class="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+        <!-- Ячейки генерируются динамически (1–8 или 9–15 нед) -->
+      </div>
+    </div>
+
+    <!-- 3. Текущий ТУ и Рубежный контроль (РК) -->
+    <div class="grid grid-cols-2 gap-2">
+      <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between">
+        <div class="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Текущий ТУ:</div>
+        <div class="flex items-baseline justify-between mt-1">
+          <div class="text-xl font-black text-white" id="calcTuValue">—</div>
+          <div class="text-[10px] text-slate-500 font-mono" id="calcTuSub">ср. лек+прак</div>
+        </div>
+      </div>
+      <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between">
+        <div class="text-[10px] text-slate-400 uppercase font-semibold tracking-wider" id="calcRkLabel">РК1 (рубеж):</div>
+        <input id="calcRkInput" type="number" inputmode="decimal" min="0" max="100" placeholder="0"
+          class="w-full text-center py-1 text-sm font-black rounded-lg calc-input mt-1" />
+      </div>
+    </div>
+
+    <!-- 4. Результат расчета рейтинга -->
+    <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
+      <div>
+        <div class="text-[10px] text-slate-400 uppercase font-semibold tracking-wider" id="calcResultLabel">
+          Итоговый рейтинг Р1:</div>
+        <div class="text-xs text-slate-400 mt-0.5" id="calcResultSubtext">P1 = (ТУ1 + РК1) / 2</div>
+      </div>
+      <div class="text-right">
+        <div class="text-2xl font-black text-white" id="calcResultValue">—</div>
+        <div class="text-[10px] font-semibold text-slate-400" id="calcResultStatus">Заполните баллы</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Секция: Допуск к экзамену (РД) и прогноз -->
+  <div id="calcRdSection" class="space-y-3.5 hidden">
+    <div class="grid grid-cols-2 gap-2.5">
+      <div>
+        <label class="text-xs font-medium text-slate-300">Рейтинг 1 (Р1):</label>
+        <input id="calcRdInputR1" type="number" min="0" max="100" placeholder="0–100"
+          class="w-full px-3 py-2 text-xs rounded-xl calc-input mt-1" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-300">Рейтинг 2 (Р2):</label>
+        <input id="calcRdInputR2" type="number" min="0" max="100" placeholder="0–100"
+          class="w-full px-3 py-2 text-xs rounded-xl calc-input mt-1" />
+      </div>
+    </div>
+
+    <!-- Результат допуска -->
+    <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+      <div>
+        <div class="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Рейтинг допуска (РД):</div>
+        <div class="text-xs text-slate-400 mt-0.5">РД = (Р1 + Р2) / 2 • Порог &ge; 50</div>
+      </div>
+      <div class="text-right">
+        <div class="text-2xl font-black text-white" id="calcRdValue">—</div>
+        <div class="text-[10px] font-semibold text-slate-400" id="calcRdStatus">Введите Р1 и Р2</div>
+      </div>
+    </div>
+
+    <!-- Прогноз экзамена -->
+    <div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800/80 space-y-2">
+      <div class="flex items-center justify-between text-xs">
+        <span class="font-medium text-slate-300">🎯 Прогноз экзамена:</span>
+        <span class="text-[10px] text-slate-500 font-mono">Итог = РД×0.6 + Экз×0.4</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center text-xs" id="calcExamTargets">
+        <!-- Карточки для 70 (B-), 75 (B), 90 (A) -->
+      </div>
+    </div>
+  </div>
+</div>
