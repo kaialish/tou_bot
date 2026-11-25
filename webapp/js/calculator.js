@@ -37,8 +37,42 @@ window.TouApp = window.TouApp || {};
     const rdStatus = document.getElementById("calcRdStatus");
     const examTargets = document.getElementById("calcExamTargets");
     const btnReset = document.getElementById("btnResetCalc");
+    const headerToggle = document.getElementById("calcHeaderToggle");
+    const btnToggleCalc = document.getElementById("btnToggleCalc");
+    const calcToggleLabel = document.getElementById("calcToggleLabel");
+    const calcToggleChevron = document.getElementById("calcToggleChevron");
+    const collapsibleBody = document.getElementById("calcCollapsibleBody");
 
     if (!tabR1 || !lectureCells || !practiceCells) return;
+
+    function setCollapsed(collapsed, save = true) {
+      if (!collapsibleBody) return;
+      collapsibleBody.classList.toggle("hidden", collapsed);
+      if (btnReset) btnReset.classList.toggle("hidden", collapsed);
+      if (calcToggleChevron) calcToggleChevron.classList.toggle("rotate-180", !collapsed);
+      if (calcToggleLabel) calcToggleLabel.textContent = collapsed ? "Развернуть" : "Свернуть";
+      if (btnToggleCalc) btnToggleCalc.setAttribute("aria-expanded", String(!collapsed));
+      if (save) {
+        try { localStorage.setItem("tou_calc_collapsed", collapsed ? "true" : "false"); } catch (e) {}
+      }
+    }
+
+    app.calculator.setCollapsed = setCollapsed;
+
+    if (headerToggle) {
+      headerToggle.addEventListener("click", () => {
+        app.triggerHaptic("light");
+        const isCurrentlyCollapsed = collapsibleBody ? collapsibleBody.classList.contains("hidden") : false;
+        setCollapsed(!isCurrentlyCollapsed);
+      });
+    }
+
+    try {
+      const savedCollapsed = localStorage.getItem("tou_calc_collapsed");
+      setCollapsed(savedCollapsed !== "false", false);
+    } catch (e) {
+      setCollapsed(true, false);
+    }
 
     let currentMode = "r1"; // 'r1' | 'r2' | 'rd'
     const memory = {
@@ -392,7 +426,8 @@ window.TouApp = window.TouApp || {};
     }
 
     if (btnReset) {
-      btnReset.addEventListener("click", () => {
+      btnReset.addEventListener("click", (e) => {
+        e.stopPropagation();
         app.triggerHaptic("medium");
         memory.r1 = { lectures: {}, practices: {}, rk: "", rating: null };
         memory.r2 = { lectures: {}, practices: {}, rk: "", rating: null };
@@ -443,10 +478,11 @@ window.TouApp = window.TouApp || {};
 
       renderWeekCells();
       calculateRating();
+      setCollapsed(false);
 
       const calcCard = document.getElementById("gradeCalculatorCard");
       if (calcCard) {
-        calcCard.scrollIntoView({ behavior: "smooth" });
+        calcCard.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     };
 
