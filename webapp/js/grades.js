@@ -9,8 +9,15 @@ window.TouApp = window.TouApp || {};
   // 1. Отрисовка списка дисциплин для выбранного рейтинга (Р1 или Р2)
   app.grades.renderGrades = function (part = 1) {
     const container = document.getElementById("gradesList");
+    const anchorsContainer = document.getElementById("gradesSubjectAnchors");
+    const weekEl = document.getElementById("currentWeekNum");
+    if (weekEl) {
+      const cw = app.state.data?.grades?.current_week ?? app.state.data?.academic_status?.current_week;
+      weekEl.textContent = (cw !== undefined && cw !== null && cw !== "") ? String(cw) : "--";
+    }
     if (!container) return;
     container.innerHTML = "";
+    if (anchorsContainer) anchorsContainer.innerHTML = "";
 
     const courses = app.state.data?.grades?.courses || [];
     if (courses.length === 0) {
@@ -25,6 +32,22 @@ window.TouApp = window.TouApp || {};
     }
 
     courses.forEach((c, idx) => {
+      if (anchorsContainer) {
+        const shortTitle = (c.title || `Предмет ${idx + 1}`).trim();
+        const label = shortTitle.length > 18 ? `${shortTitle.slice(0, 17)}…` : shortTitle;
+        const anchorBtn = document.createElement("button");
+        anchorBtn.type = "button";
+        anchorBtn.className = "flex-shrink-0 text-[11px] font-medium px-2.5 py-1.5 rounded-xl bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/60 active:scale-95 transition-all";
+        anchorBtn.textContent = label;
+        anchorBtn.title = shortTitle;
+        anchorBtn.addEventListener("click", () => {
+          app.triggerHaptic("light");
+          const target = document.getElementById(`gradeCourse_${idx}`);
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        anchorsContainer.appendChild(anchorBtn);
+      }
+
       const p = part === 1 ? c.part1 : c.part2;
       const tu = p?.tu || "—";
       const rk = p?.rk || "—";
@@ -40,7 +63,8 @@ window.TouApp = window.TouApp || {};
         .join(" • ");
 
       const card = document.createElement("div");
-      card.className = "p-4 rounded-2xl glass-card border border-slate-800 space-y-3";
+      card.id = `gradeCourse_${idx}`;
+      card.className = "p-4 rounded-2xl glass-card border border-slate-800 space-y-3 scroll-mt-20";
 
       card.innerHTML = `
         <div>
@@ -168,6 +192,44 @@ window.TouApp = window.TouApp || {};
         try { localStorage.setItem("tou_grades_part", "2"); } catch (e) {}
         app.grades.updateGradesPartButtons();
         app.grades.renderGrades(2);
+      });
+    }
+
+    const floatingAnchorBtn = document.getElementById("gradesFloatingAnchorBtn");
+    const anchorIcon = document.getElementById("gradesAnchorIcon");
+    if (floatingAnchorBtn && anchorIcon) {
+      const isNearCalculator = () => {
+        if (window.scrollY <= 80) return false;
+        const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 40;
+        if (atBottom) return true;
+        const calcCard = document.getElementById("gradeCalculatorCard");
+        if (!calcCard) return false;
+        const rect = calcCard.getBoundingClientRect();
+        return rect.top <= window.innerHeight * 0.65;
+      };
+
+      const updateAnchorAppearance = () => {
+        const atCalc = isNearCalculator();
+        anchorIcon.textContent = atCalc ? "↑" : "🧮";
+        floatingAnchorBtn.title = atCalc ? "Наверх к предметам" : "Перейти к калькулятору";
+      };
+
+      window.addEventListener("scroll", updateAnchorAppearance, { passive: true });
+      updateAnchorAppearance();
+
+      floatingAnchorBtn.addEventListener("click", () => {
+        app.triggerHaptic("light");
+        if (isNearCalculator()) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          if (app.calculator?.setCollapsed) {
+            app.calculator.setCollapsed(false);
+          }
+          const calcCard = document.getElementById("gradeCalculatorCard");
+          if (calcCard) {
+            calcCard.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }
       });
     }
   };

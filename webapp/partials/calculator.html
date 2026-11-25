@@ -1,7 +1,7 @@
 <!-- ==================== КАЛЬКУЛЯТОР БАЛЛОВ И ДОПУСКА ==================== -->
-<div id="gradeCalculatorCard" class="mt-6 p-4 rounded-2xl glass-card space-y-4 border border-slate-800/90">
-  <!-- Заголовок калькулятора -->
-  <div class="flex items-center justify-between">
+<div id="gradeCalculatorCard" class="mt-6 p-4 rounded-2xl glass-card space-y-4 border border-slate-800/90 scroll-mt-20">
+  <!-- Заголовок калькулятора (кликабельный для сворачивания/разворачивания) -->
+  <div id="calcHeaderToggle" class="flex items-center justify-between cursor-pointer select-none">
     <div class="flex items-center space-x-2">
       <span class="text-lg">🧮</span>
       <div>
@@ -9,12 +9,24 @@
         <p class="text-[11px] text-slate-400">Расчёт рейтинга и допуска к экзамену</p>
       </div>
     </div>
-    <button id="btnResetCalc" type="button"
-      class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700/60 transition-all flex items-center space-x-1 active:scale-95">
-      <span>↺</span><span>Сброс</span>
-    </button>
+    <div class="flex items-center space-x-1.5">
+      <button id="btnResetCalc" type="button"
+        class="hidden text-[11px] px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700/60 transition-all flex items-center space-x-1 active:scale-95">
+        <span>↺</span><span>Сброс</span>
+      </button>
+      <button id="btnToggleCalc" type="button"
+        class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-emerald-400 border border-slate-700/60 transition-all flex items-center space-x-1 active:scale-95"
+        aria-expanded="false">
+        <span id="calcToggleLabel">Развернуть</span>
+        <svg id="calcToggleChevron" class="w-3.5 h-3.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
+        </svg>
+      </button>
+    </div>
   </div>
 
+  <!-- Сворачиваемое содержимое калькулятора -->
+  <div id="calcCollapsibleBody" class="space-y-4 hidden">
   <!-- Переключатель режима: Рейтинг 1 / Рейтинг 2 / Допуск (РД) -->
   <div class="flex items-center p-1 rounded-xl bg-slate-900/90 border border-slate-800 text-xs">
     <button id="calcTabR1" type="button"
@@ -141,5 +153,6 @@
         <!-- Карточки для 70 (B-), 75 (B), 90 (A) -->
       </div>
     </div>
+  </div>
   </div>
 </div>
